@@ -397,8 +397,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!ring || !scoreVal) return;
 
-    // Circumference for r=50 is 2 * PI * 50 = 314.159
-    const circumference = 314.159;
+    // Circumference for r=52 is 2 * PI * 52 = 326.7
+    const circumference = 326.7;
     const offset = circumference - (score / 100) * circumference;
 
     ring.className = `gauge-progress ${riskLevel}`;
