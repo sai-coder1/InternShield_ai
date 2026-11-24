@@ -8,6 +8,8 @@ const MOCK_SCENARIOS = {
   fee_scam: {
     id: "fee_scam",
     label: "Training Fee Demand",
+    company: "Apex Global Tech",
+    url: "",
     sampleText: "Congratulations! You have been selected for the Remote Web Development Internship at Apex Global Tech. To finalize your onboarding and receive company software licenses, you are required to pay a mandatory refundable registration and training fee of $150 via UPI/Wire transfer. Once paid, your training module begins immediately.",
     score: 94,
     riskLevel: "danger",
@@ -74,6 +76,8 @@ const MOCK_SCENARIOS = {
   telegram_scam: {
     id: "telegram_scam",
     label: "Telegram / WhatsApp Only",
+    company: "Apex Global Solutions",
+    url: "",
     sampleText: "Hi! We reviewed your profile on LinkedIn and are excited to offer you a part-time Data Entry position paying $45/hour. No prior experience is needed. Please install Telegram and contact our HR manager @hiring_officer_fast to conduct your text-only interview and receive your welcome packet.",
     score: 68,
     riskLevel: "warning",
@@ -138,6 +142,8 @@ const MOCK_SCENARIOS = {
   legitimate_offer: {
     id: "legitimate_offer",
     label: "Legitimate Offer Sample",
+    company: "Acme Corp",
+    url: "https://careers.acme.com",
     sampleText: "Dear Candidate, following your technical interview and code review with our engineering team, Acme Corp is pleased to offer you the Summer Software Engineering Internship. Your stipend is $28/hour. Please review the attached official offer document and submit your signed copy through our careers portal at careers.acme.com by next Friday.",
     score: 12,
     riskLevel: "safe",

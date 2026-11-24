@@ -132,14 +132,14 @@ function initLoginForm() {
 
     // Display simulated confirmation banner (does not claim real registration/login)
     if (noticeBanner) {
-      noticeBanner.className = "auth-notice-banner success visible";
+      noticeBanner.className = "auth-notice-banner info visible";
       noticeBanner.innerHTML = `
-        <strong>✓ Demo Mode – Format Verified</strong>
+        <strong>ℹ️ Format Verified – Demo Mode</strong>
         <p style="margin-top: 6px; margin-bottom: 12px;">
-          Valid format verified. <strong>No real account authentication is performed in Demo Mode.</strong> You can now explore the full interactive demonstration.
+          Email and password format verified. <strong>Backend user authentication API is not connected</strong> (the Spring Boot backend currently powers company verification, research evidence, and AI risk analysis).
         </p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <a href="index.html" class="btn btn-primary btn-sm">Enter Main Website Demo →</a>
+          <a href="index.html" class="btn btn-primary btn-sm">Go to AI Offer Scanner →</a>
         </div>
       `;
       noticeBanner.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -243,14 +243,14 @@ function initRegisterForm() {
 
     // Display simulated confirmation banner
     if (noticeBanner) {
-      noticeBanner.className = "auth-notice-banner success visible";
+      noticeBanner.className = "auth-notice-banner info visible";
       noticeBanner.innerHTML = `
-        <strong>✓ Demo Mode – Client Validation Successful</strong>
+        <strong>ℹ️ Client Validation Passed – Demo Mode</strong>
         <p style="margin-top: 6px; margin-bottom: 12px;">
-          All registration fields passed validation checks. <strong>Registration is simulated</strong> — no real account has been created and no credentials have been stored.
+          All registration fields passed client-side validation. <strong>Backend user account authentication is not connected</strong> — no real account has been created and no credentials have been stored. You can proceed to test the live offer scanner.
         </p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <a href="index.html" class="btn btn-primary btn-sm">Explore Main Website Demo →</a>
+          <a href="index.html" class="btn btn-primary btn-sm">Go to AI Offer Scanner →</a>
           <a href="login.html" class="btn btn-secondary btn-sm">Go to Login Demo</a>
         </div>
       `;

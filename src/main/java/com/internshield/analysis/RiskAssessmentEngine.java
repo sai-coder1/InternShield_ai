@@ -15,15 +15,15 @@ import java.util.regex.Pattern;
 @Service
 public class RiskAssessmentEngine {
 
-    // Regex patterns for the 11 checks
+    // Regex patterns for the 11 checks (with negative lookbehinds/lookaheads to prevent false positives on 'no fee', 'never request fees', 'Application fee: 0')
     private static final Pattern REGISTRATION_FEE_PATTERN = Pattern.compile(
-            "(?i)\\b(registration fee|registration charges|pay to register|form fee|application fee of rs|enrollment fee)\\b");
+            "(?i)(?<!(?:no |never |without |free of ))\\b(registration(?: and [a-z]+)? fee|registration charges|pay to register|form fee|application fee(?![:\\s]*(?:[$₹€£]?\\s*0\\b|none|free|nil))(?: of rs)?|enrollment fee|fee of \\$\\d+)\\b");
 
     private static final Pattern TRAINING_FEE_PATTERN = Pattern.compile(
-            "(?i)\\b(training fee|training charges|pay for training|mandatory course fee|onboarding charges|certification fee to start)\\b");
+            "(?i)(?<!(?:no |never |without |free of ))\\b(training fee|training charges|pay for training|mandatory course fee|onboarding charges|certification fee to start)\\b");
 
     private static final Pattern PAYMENT_AFTER_FREE_PATTERN = Pattern.compile(
-            "(?i)\\b(security deposit|refundable caution deposit|refundable amount|pay to confirm seat|laptop deposit|equipment charges)\\b");
+            "(?i)(?<!(?:no |never |without |free of ))\\b(security deposit|security fee|equipment (?:security )?fee|refundable (?:registration|equipment|caution|security)?\\s*(?:deposit|amount|fee)|refundable caution deposit|refundable amount|pay to confirm seat|laptop deposit|equipment charges)\\b");
 
     private static final Pattern PUBLIC_EMAIL_DOMAINS = Pattern.compile(
             "(?i)@(gmail|yahoo|hotmail|outlook|rediffmail|protonmail|aol|icloud)\\.com");
@@ -38,10 +38,10 @@ public class RiskAssessmentEngine {
             "(?i)\\b(simple typing|copy paste|data entry work from home|fill captchas|earn 2000 daily|no skills required)\\b");
 
     private static final Pattern UNREALISTIC_STIPEND_PATTERN = Pattern.compile(
-            "(?i)\\b(stipend|salary)[:\\s]*(?:rs\\.?|inr|₹)?\\s*(?:[5-9]\\d{4}|[1-9]\\d{5})\\s*(?:per month|/month|p\\.m\\.)\\b");
+            "(?i)\\b(stipend|salary)[:\\s]*(?:rs\\.?|inr|₹|\\$)?\\s*(?:[5-9]\\d{4}|[1-9]\\d{5}|[5-9]\\d{2}\\s*(?:per week|/week)|[1-9]\\d{3}\\s*(?:per week|/week))\\s*(?:per month|/month|p\\.m\\.|per week|/week)?\\b");
 
     private static final Pattern ARTIFICIAL_URGENCY_PATTERN = Pattern.compile(
-            "(?i)\\b(pay within|urgent requirement|offer expires in|valid for today only|last \\d+ seats|immediate payment)\\b");
+            "(?i)\\b(pay within|urgent requirement|offer expires in|valid for today only|last \\d+ seats|immediate payment|within \\d+ hours?)\\b");
 
     private static final Pattern SUSPICIOUS_DOMAIN_TLDS = Pattern.compile(
             "(?i)\\.(xyz|top|buzz|click|club|rest|link|cam|work|gq|cf|tk|ml)$");
@@ -292,7 +292,10 @@ public class RiskAssessmentEngine {
         }
 
         // Clamp score between 10 and 100
-        score = Math.max(10, Math.min(100, score));
+        // When high-risk communication or impersonation flags are tripped (e.g. Telegram recruitment, free webmail),
+        // genuine corporate registry records cannot reduce risk below MODERATE vigilance (min 30).
+        int minScore = violations.stream().anyMatch(v -> "HIGH".equals(v.severity())) ? 30 : 10;
+        score = Math.max(minScore, Math.min(100, score));
 
         // Determine Level and Recommendation
         RiskRecommendation recommendation;
@@ -329,13 +332,22 @@ public class RiskAssessmentEngine {
 
     private String buildCombinedCorpus(ExtractedInternshipDetails listing, List<Evidence> evidenceList) {
         StringBuilder sb = new StringBuilder();
-        if (listing != null && !listing.unreachable() && listing.rawContent() != null) {
+        boolean hasListingContent = listing != null && !listing.unreachable() 
+                && listing.rawContent() != null && !listing.rawContent().isBlank();
+
+        if (hasListingContent) {
             sb.append(listing.rawContent()).append("\n");
         }
+
         if (evidenceList != null) {
             for (Evidence ev : evidenceList) {
-                if (ev.getTitle() != null) sb.append(ev.getTitle()).append(" ");
-                if (ev.getDescription() != null) sb.append(ev.getDescription()).append(" ");
+                // Strictly only include evidence categorized as COMMUNITY_REPORT (e.g. direct student scam complaints).
+                // Benign web searches, news articles, official portals, and awareness guides must NEVER be included
+                // in the listing corpus to avoid false positives from general job scam articles.
+                if (ev.getCategory() == EvidenceCategory.COMMUNITY_REPORT) {
+                    if (ev.getTitle() != null) sb.append(ev.getTitle()).append(" ");
+                    if (ev.getDescription() != null) sb.append(ev.getDescription()).append(" ");
+                }
             }
         }
         return sb.toString();
