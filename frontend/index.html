@@ -281,7 +281,7 @@
             </svg>
             <span>Internship &amp; Job Offer Risk Scanner</span>
           </div>
-          <span class="badge badge-info">Interactive Simulation</span>
+          <span class="badge badge-info">AI-Powered Scanner</span>
         </div>
 
         <div class="scenario-chips-wrapper">
@@ -293,14 +293,28 @@
           </div>
         </div>
 
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="companyInput" class="form-label">Company / Organization Name <span style="color:var(--status-danger)">*</span></label>
+            <input type="text" id="companyInput" class="form-input" placeholder="e.g. Apex Global Tech, Google India, Acme Corp" required>
+            <span class="input-error-msg" id="companyInputError">Company name is required for verification.</span>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="urlInput" class="form-label">Job / Application URL <span style="font-weight:400; color:var(--text-muted);">(optional)</span></label>
+            <input type="url" id="urlInput" class="form-input" placeholder="https://careers.company.com/job/123">
+          </div>
+        </div>
+
         <div class="form-group">
-          <label for="offerInput" class="form-label">Paste offer email, text message, or job description:</label>
+          <label for="offerInput" class="form-label">Offer email, text message, or job description: <span style="font-weight:400; color:var(--text-muted);">(optional if URL provided)</span></label>
           <textarea id="offerInput" class="form-textarea"
             placeholder="Paste the offer email, WhatsApp/Telegram message, or job description here... (e.g., 'Selected for internship, please submit refundable registration fee of $150...')"></textarea>
         </div>
 
+        <div id="scannerApiError" class="auth-notice-banner error" style="display: none; margin-bottom: 16px;"></div>
+
         <div class="scanner-actions">
-          <div class="scanner-note"><span>🛡️ Simulated evaluation based on common fraud patterns.</span></div>
+          <div class="scanner-note"><span>🛡️ Real-time verification via Octen Search &amp; Gemini AI Risk Engine.</span></div>
           <div style="display:flex; gap:12px;">
             <button type="button" id="clearBtn" class="btn btn-secondary btn-sm">Clear</button>
             <button type="button" id="analyzeBtn" class="btn btn-dark">

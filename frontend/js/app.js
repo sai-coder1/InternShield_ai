@@ -1,17 +1,26 @@
 /**
  * InternShield AI - Main UI Controller
- * Handles user interactions, unified smooth navigation, mobile menu,
- * simulated analysis flow with safe scroll handling, circular risk gauge animations,
- * company verification, and session history.
+ * Connected to Spring Boot Backend API (http://localhost:8080)
+ *
+ * Handles live offer verification, Octen research orchestration,
+ * Gemini AI credibility analysis, circular risk gauge animations,
+ * company verification, and persistent session history from the database.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Backend API Base URL (configurable via window.INTERNSHIELD_API_BASE_URL)
+  const API_BASE_URL = window.INTERNSHIELD_API_BASE_URL || "http://localhost:8080";
+
   // Navigation elements
   const mobileToggle = document.getElementById("mobileToggle");
   const navMenu = document.getElementById("navMenu");
 
   // Scanner UI Components
+  const companyInput = document.getElementById("companyInput");
+  const companyInputError = document.getElementById("companyInputError");
+  const urlInput = document.getElementById("urlInput");
   const offerInput = document.getElementById("offerInput");
+  const scannerApiError = document.getElementById("scannerApiError");
   const analyzeBtn = document.getElementById("analyzeBtn");
   const clearBtn = document.getElementById("clearBtn");
   const scannerEmptyState = document.getElementById("scannerEmptyState");
@@ -28,11 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Analysis scroll protection state
   let currentAnalysisId = 0;
-  let analysisTimeoutId = null;
 
   /**
    * Unified smooth scroll function that offsets for the sticky header
-   * Ensures target section headings and cards are never hidden under the navigation bar.
    */
   function smoothScrollToElement(targetElement) {
     if (!targetElement) return;
@@ -48,10 +55,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /**
-   * Cancel pending automatic analysis scrolls so delayed timers
-   * do not interrupt or hijack a user's manual navigation.
-   */
   function cancelPendingAnalysisScroll() {
     currentAnalysisId++;
   }
@@ -65,15 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /**
-   * Unified Click Handler for ALL Internal Anchor Links:
-   * - Header nav links (#scanner, #features, #red-flags, #checklist)
-   * - Header "Check Offer" button (#scanner)
-   * - Brand logo (#top)
-   * - Hero "Check a Job Offer" button (#scanner)
-   * - Hero "View Scam Signals" button (#red-flags)
-   * - Footer links (#top, #scanner, #features, #red-flags, #checklist)
-   */
+  // Unified Click Handler for Internal Anchor Links
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener("click", (e) => {
       const href = anchor.getAttribute("href");
@@ -85,11 +80,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (targetElement) {
         e.preventDefault();
-
-        // 1. Invalidate any in-flight analysis scrolling so manual navigation takes precedence
         cancelPendingAnalysisScroll();
 
-        // 2. Automatically close mobile hamburger menu if open
         if (navMenu && navMenu.classList.contains("open")) {
           navMenu.classList.remove("open");
           if (mobileToggle) {
@@ -97,10 +89,8 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // 3. Smoothly scroll to the target section with header offset
         smoothScrollToElement(targetElement);
 
-        // 4. Update browser URL history cleanly without sudden jumps
         if (history.pushState) {
           history.pushState(null, "", href);
         }
@@ -108,253 +98,402 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Populate sample scenario when chip is clicked
+  // Real-time clearing of validation error on company input
+  if (companyInput) {
+    companyInput.addEventListener("input", () => {
+      companyInput.classList.remove("error");
+      if (companyInputError) companyInputError.classList.remove("visible");
+      hideApiError();
+    });
+  }
+
+  // Populate scenario and run live analysis when chip is clicked
   scenarioChips.forEach(chip => {
     chip.addEventListener("click", () => {
       const scenarioKey = chip.getAttribute("data-scenario");
       scenarioChips.forEach(c => c.classList.remove("active"));
       chip.classList.add("active");
 
-      if (MOCK_SCENARIOS && MOCK_SCENARIOS[scenarioKey]) {
+      if (typeof MOCK_SCENARIOS !== "undefined" && MOCK_SCENARIOS[scenarioKey]) {
         const scenario = MOCK_SCENARIOS[scenarioKey];
-        offerInput.value = scenario.sampleText;
-        runAnalysis(scenario, scenario.label);
+        if (companyInput) companyInput.value = scenario.company || "";
+        if (urlInput) urlInput.value = scenario.url || "";
+        if (offerInput) offerInput.value = scenario.sampleText || "";
+
+        if (companyInput) companyInput.classList.remove("error");
+        if (companyInputError) companyInputError.classList.remove("visible");
+        hideApiError();
+
+        runLiveAnalysis(scenario.company || "Sample Company", scenario.url || "", scenario.sampleText || "", scenario.label);
       }
     });
   });
 
-  // Clear button resets input, hides result, displays empty state
+  // Clear button resets form inputs, hides results, displays empty state
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
       cancelPendingAnalysisScroll();
-      offerInput.value = "";
+      if (companyInput) {
+        companyInput.value = "";
+        companyInput.classList.remove("error");
+      }
+      if (companyInputError) companyInputError.classList.remove("visible");
+      if (urlInput) urlInput.value = "";
+      if (offerInput) offerInput.value = "";
+      hideApiError();
+
       scenarioChips.forEach(c => c.classList.remove("active"));
       if (analysisResult) analysisResult.classList.remove("visible");
       if (scanningIndicator) scanningIndicator.classList.remove("active");
       if (scannerEmptyState) scannerEmptyState.classList.remove("hidden");
-      offerInput.focus();
+      resetAnalyzeBtn();
+      if (companyInput) companyInput.focus();
     });
   }
 
   // Analyze button click
   if (analyzeBtn) {
     analyzeBtn.addEventListener("click", () => {
-      const text = offerInput.value.trim();
-      if (!text) {
-        alert("Please paste or type an offer letter, message, or job snippet to check.");
-        offerInput.focus();
+      hideApiError();
+
+      let company = companyInput ? companyInput.value.trim() : "";
+      const url = urlInput ? urlInput.value.trim() : "";
+      const text = offerInput ? offerInput.value.trim() : "";
+
+      // If user pasted text without filling company, attempt heuristic extraction
+      if (!company && text) {
+        company = extractCompanyFromText(text) || "";
+        if (company && companyInput) {
+          companyInput.value = company;
+        }
+      }
+
+      if (!company) {
+        if (companyInput) {
+          companyInput.classList.add("error");
+          companyInput.focus();
+        }
+        if (companyInputError) companyInputError.classList.add("visible");
+        showApiError("Please enter the <strong>Company / Organization name</strong> so our search orchestrator and AI engine can verify it.");
         return;
       }
 
-      // Check if text matches known scenario or run dynamic rule evaluation
-      const matched = evaluateOfferText(text);
-      runAnalysis(matched, "Custom Offer Input");
+      if (!text && !url) {
+        showApiError("Please provide an <strong>offer message/description</strong> or enter a <strong>job listing URL</strong> to evaluate.");
+        if (offerInput) offerInput.focus();
+        return;
+      }
+
+      runLiveAnalysis(company, url, text, `${company} Scan`);
     });
   }
 
+  function showApiError(messageHtml) {
+    if (!scannerApiError) return;
+    scannerApiError.innerHTML = messageHtml;
+    scannerApiError.style.display = "block";
+    scannerApiError.classList.add("visible");
+    smoothScrollToElement(scannerApiError);
+  }
+
+  function hideApiError() {
+    if (!scannerApiError) return;
+    scannerApiError.style.display = "none";
+    scannerApiError.classList.remove("visible");
+    scannerApiError.innerHTML = "";
+  }
+
+  function resetAnalyzeBtn() {
+    if (!analyzeBtn) return;
+    analyzeBtn.disabled = false;
+    analyzeBtn.innerHTML = `
+      Analyze Offer
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <line x1="7" y1="17" x2="17" y2="7" />
+        <polyline points="7 7 17 7 17 17" />
+      </svg>
+    `;
+  }
+
   /**
-   * Simulate scanning state with loading animation and safe scroll handling
+   * Connect to real Spring Boot backend: POST /api/analysis
    */
-  function runAnalysis(data, sourceLabel) {
+  async function runLiveAnalysis(companyName, internshipUrl, pastedDescription, sourceLabel) {
     if (!scanningIndicator || !analysisResult) return;
 
     const thisAnalysisId = ++currentAnalysisId;
 
+    hideApiError();
     if (scannerEmptyState) scannerEmptyState.classList.add("hidden");
     analysisResult.classList.remove("visible");
     scanningIndicator.classList.add("active");
-    if (analyzeBtn) analyzeBtn.disabled = true;
 
-    analysisTimeoutId = setTimeout(() => {
-      scanningIndicator.classList.remove("active");
-      if (analyzeBtn) analyzeBtn.disabled = false;
-
-      renderAnalysisResult(data);
-      addSessionHistory(data, sourceLabel);
-      analysisResult.classList.add("visible");
-
-      // Only scroll to results if the user did NOT navigate away during the scan
-      if (thisAnalysisId === currentAnalysisId) {
-        const scannerSection = document.getElementById("scanner");
-        if (scannerSection) {
-          const rect = scannerSection.getBoundingClientRect();
-          // If scanner area is still visible in viewport, scroll down to result card smoothly
-          const isScannerInView = rect.top < window.innerHeight && rect.bottom > 100;
-          if (isScannerInView) {
-            smoothScrollToElement(analysisResult);
-          }
-        }
-      }
-    }, 600);
-  }
-
-  // Heuristic rule matcher for custom text
-  function evaluateOfferText(text) {
-    for (const key of Object.keys(MOCK_SCENARIOS)) {
-      if (text === MOCK_SCENARIOS[key].sampleText) {
-        return MOCK_SCENARIOS[key];
-      }
+    if (analyzeBtn) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.innerHTML = `Scanning... <span class="scanner-spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;margin-left:6px;vertical-align:middle;"></span>`;
     }
 
-    const lower = text.toLowerCase();
-    const hasFee = lower.includes("fee") || lower.includes("pay") || lower.includes("deposit") ||
-                   lower.includes("registration") || lower.includes("training fee") ||
-                   lower.includes("refundable") || lower.includes("upi") || lower.includes("wire");
-    const hasMessaging = lower.includes("telegram") || lower.includes("whatsapp") ||
-                         lower.includes("crypto") || lower.includes("gift card") ||
-                         lower.includes("@gmail") || lower.includes("@yahoo");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/analysis`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          companyName: companyName,
+          internshipUrl: internshipUrl ? internshipUrl.trim() : null,
+          pastedDescription: pastedDescription ? pastedDescription.trim() : null
+        })
+      });
 
-    if (hasFee) {
-      return {
-        score: 91,
-        riskLevel: "danger",
-        classification: "High Risk",
-        riskBadge: "High Risk - Fee Pattern Detected",
-        summary: "Potential payment demand detected in text. Genuine employers do not charge candidates application, registration, training, or equipment fees.",
-        warningSigns: [
-          {
-            title: "Upfront Fee Keywords Detected",
-            severity: "Critical",
-            type: "danger",
-            icon: "dollar",
-            observation: "Text contains indicators of fee payments, deposits, or registration charges.",
-            whyItMatters: "Legitimate corporate recruiters never require job seekers to pay money for equipment, background checks, or training modules."
-          },
-          {
-            title: "Direct Monetary Transfer Request",
-            severity: "Critical",
-            type: "danger",
-            icon: "credit-card",
-            observation: "Payment mechanism mentioned (wire/deposit/fee) with non-standard employment terms.",
-            whyItMatters: "Scammers frequently request untraceable or peer-to-peer transfers before ghosting victims."
+      if (!response.ok) {
+        let errorDetail = `Backend HTTP ${response.status} (${response.statusText})`;
+        try {
+          const errJson = await response.json();
+          if (errJson && errJson.message) {
+            errorDetail = errJson.message;
+          } else if (errJson && errJson.error) {
+            errorDetail = errJson.error;
           }
-        ],
-        companyVerification: {
-          isSimulated: true,
-          companyName: "Unverified Custom Sender",
-          identity: {
-            status: "fail",
-            badge: "Unverified Entity",
-            detail: "No business registration or corporate footprint confirmed from provided snippet."
-          },
-          website: {
-            status: "warn",
-            badge: "Unconfirmed Portal",
-            detail: "Custom input lacks direct reference to a verifiable corporate careers portal."
-          },
-          recruiter: {
-            status: "fail",
-            badge: "High Risk Signals",
-            detail: "Monetary demand indicates an unauthorized or fraudulent recruiter identity."
-          }
-        },
-        recommendedActions: [
-          "Do NOT transfer any money or provide banking credentials under any pretext.",
-          "Cease contact with the sender immediately.",
-          "Check the company's verified careers portal independently to verify if the job ID exists."
-        ]
-      };
-    } else if (hasMessaging) {
-      return {
-        score: 64,
-        riskLevel: "warning",
-        classification: "Medium Risk",
-        riskBadge: "Medium Risk - Suspicious Channel",
-        summary: "Communication through unofficial channels like Telegram or generic freemail accounts is a frequent hallmark of impersonation scams.",
-        warningSigns: [
-          {
-            title: "Unofficial Messaging Platform",
-            severity: "Moderate",
-            type: "warning",
-            icon: "chat",
-            observation: "Interview or correspondence directed through third-party chat services.",
-            whyItMatters: "Corporate talent teams conduct business through verified enterprise emails, ATS systems, and scheduled video conferencing."
-          },
-          {
-            title: "Informal Hiring Workflow",
-            severity: "Moderate",
-            type: "warning",
-            icon: "mail",
-            observation: "Absence of corporate domain verification or scheduled formal evaluations.",
-            whyItMatters: "Lack of institutional transparency allows malicious actors to impersonate reputable firms without detection."
-          }
-        ],
-        companyVerification: {
-          isSimulated: true,
-          companyName: "Unverified Custom Recruiter",
-          identity: {
-            status: "warn",
-            badge: "Unconfirmed Identity",
-            detail: "Entity details are insufficient for complete validation."
-          },
-          website: {
-            status: "warn",
-            badge: "External Platform",
-            detail: "Relies on external messaging networks rather than official employer domain."
-          },
-          recruiter: {
-            status: "fail",
-            badge: "Unofficial Channel",
-            detail: "Recruiter contact is not tied to a registered enterprise email domain."
-          }
-        },
-        recommendedActions: [
-          "Insist on written correspondence using an official corporate domain email address (@company.com).",
-          "Never accept text-only interviews as a substitute for verified interviews.",
-          "Search LinkedIn for the recruiter's name to confirm their active employment status."
-        ]
-      };
-    } else {
-      return {
-        score: 18,
-        riskLevel: "safe",
-        classification: "Low Risk",
-        riskBadge: "Low Risk - Clean Indicators",
-        summary: "No standard scam keywords (fees, crypto, unverified chat apps) were detected in this snippet.",
-        warningSigns: [
-          {
-            title: "Absence of Monetary Requests",
+        } catch (_) {}
+        throw new Error(errorDetail);
+      }
+
+      const backendReport = await response.json();
+
+      // Transform backend DTO to UI model
+      const uiData = transformBackendReportToUi(backendReport);
+
+      scanningIndicator.classList.remove("active");
+      resetAnalyzeBtn();
+
+      renderAnalysisResult(uiData);
+      addSessionHistory(uiData, sourceLabel || companyName);
+      analysisResult.classList.add("visible");
+
+      if (thisAnalysisId === currentAnalysisId) {
+        smoothScrollToElement(analysisResult);
+      }
+
+    } catch (err) {
+      scanningIndicator.classList.remove("active");
+      resetAnalyzeBtn();
+      if (scannerEmptyState) scannerEmptyState.classList.remove("hidden");
+
+      showApiError(`
+        <strong>Live Analysis Error:</strong> ${err.message}<br>
+        <span style="font-size:0.85rem; opacity:0.9;">Ensure the Spring Boot backend server is running on <code>${API_BASE_URL}</code>.</span>
+      `);
+    }
+  }
+
+  /**
+   * Load real past checks from Spring Boot database: GET /api/analysis
+   */
+  async function loadRecentChecksFromBackend() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/analysis`);
+      if (res.ok) {
+        const reports = await res.json();
+        if (Array.isArray(reports) && reports.length > 0) {
+          sessionChecks = reports.slice(0, 8).map(report => {
+            const uiData = transformBackendReportToUi(report);
+            return {
+              id: report.id,
+              label: report.companyName || "Analyzed Offer",
+              timestamp: report.createdAt
+                ? new Date(report.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : "Recent",
+              score: report.riskScore != null ? report.riskScore : 0,
+              riskLevel: uiData.riskLevel,
+              classification: uiData.classification,
+              companyName: report.companyName,
+              internshipUrl: report.internshipUrl,
+              data: uiData
+            };
+          });
+          renderSessionHistory();
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load recent checks from backend:", err.message);
+    }
+  }
+
+  /**
+   * Transform backend AnalysisReportResponse to UI presentation model
+   */
+  function transformBackendReportToUi(report) {
+    const score = report.riskScore != null ? report.riskScore : 0;
+
+    // Map riskLevel to badge colors ("danger", "warning", "safe")
+    let riskLevel = "warning";
+    const rawLevel = (report.riskLevel || "").toUpperCase();
+    if (rawLevel === "HIGH" || score >= 70) {
+      riskLevel = "danger";
+    } else if (rawLevel === "LOW" || score < 30) {
+      riskLevel = "safe";
+    }
+
+    const classification = rawLevel === "HIGH" ? "High Risk" : rawLevel === "LOW" ? "Low Risk" : "Medium Risk";
+    const riskBadge = report.recommendation
+      ? `${report.recommendation.replace(/_/g, " ")} — ${classification}`
+      : `${classification} Detected`;
+
+    const summary = report.aiSummary || report.recommendationExplanation || report.findings || "Verification analysis completed by InternShield AI.";
+
+    // Warning signs derived from triggeredRules + riskSignals
+    const warningSigns = [];
+
+    if (Array.isArray(report.triggeredRules) && report.triggeredRules.length > 0) {
+      report.triggeredRules.forEach(rule => {
+        const isCritical = (rule.riskPoints || 0) >= 30;
+        const type = isCritical ? "danger" : "warning";
+        let icon = "alert-triangle";
+        if (rule.category === "PAYMENT_FRAUD") icon = "dollar";
+        else if (rule.category === "UNOFFICIAL_COMMUNICATION") icon = "chat";
+        else if (rule.category === "SUSPICIOUS_DOMAIN" || rule.category === "OFFICIAL_PORTAL_BYPASS") icon = "globe";
+
+        warningSigns.push({
+          title: rule.ruleName ? rule.ruleName.replace(/_/g, " ") : "Triggered Risk Rule",
+          severity: isCritical ? "Critical" : "Moderate",
+          type: type,
+          icon: icon,
+          observation: rule.description || "Suspicious pattern identified during rule-based risk evaluation.",
+          whyItMatters: getRuleWhyItMatters(rule.category, rule.ruleName)
+        });
+      });
+    }
+
+    if (Array.isArray(report.riskSignals) && report.riskSignals.length > 0) {
+      report.riskSignals.forEach(signal => {
+        warningSigns.push({
+          title: "AI Detected Risk Pattern",
+          severity: "Moderate",
+          type: "warning",
+          icon: "chat",
+          observation: signal,
+          whyItMatters: "Language patterns and recruitment structures observed match documented internship risk indicators."
+        });
+      });
+    }
+
+    // Fallback if no warning signs were triggered
+    if (warningSigns.length === 0) {
+      if (Array.isArray(report.positiveSignals) && report.positiveSignals.length > 0) {
+        report.positiveSignals.forEach(pos => {
+          warningSigns.push({
+            title: "Legitimate Verification Indicator",
             severity: "Safe Indicator",
             type: "safe",
             icon: "shield-check",
-            observation: "No fees, registration charges, or security deposits found in the provided text.",
-            whyItMatters: "Legitimate employment is characterized by employer-provided compensation without upfront expenses."
-          },
-          {
-            title: "Standard Professional Language",
-            severity: "Safe Indicator",
-            type: "safe",
-            icon: "file-text",
-            observation: "Tone and structure match normal hiring correspondence.",
-            whyItMatters: "Typical scam signals like urgency pressure or inflated salaries were not detected."
-          }
-        ],
-        companyVerification: {
-          isSimulated: true,
-          companyName: "Self-Reported Employer",
-          identity: {
-            status: "pass",
-            badge: "No Red Flags",
-            detail: "Text does not exhibit brand spoofing or known fake employer signatures."
-          },
-          website: {
-            status: "pass",
-            badge: "Standard Reference",
-            detail: "No suspicious redirection links or scam portals identified in the text."
-          },
-          recruiter: {
-            status: "pass",
-            badge: "Standard Communication",
-            detail: "No requests to transition to insecure messaging platforms."
-          }
-        },
-        recommendedActions: [
-          "Always double-check that the sender's full email domain accurately matches the company's real URL.",
-          "Verify the position is listed on the company's official career portal.",
-          "Keep records of all formal interview invitations and written agreements."
-        ]
-      };
+            observation: pos,
+            whyItMatters: "Verified presence and absence of upfront financial requirements indicate an authentic offer."
+          });
+        });
+      } else {
+        warningSigns.push({
+          title: "Clean Risk Profile",
+          severity: "Safe Indicator",
+          type: "safe",
+          icon: "shield-check",
+          observation: "No upfront fees, cryptocurrency demands, or informal chat interview patterns were detected.",
+          whyItMatters: "Authentic corporate offers follow structured evaluation cycles and do not require candidate payments."
+        });
+      }
     }
+
+    // Company verification cards
+    const hasEvidence = Array.isArray(report.evidence) && report.evidence.length > 0;
+    const officialSourceFound = hasEvidence && report.evidence.some(e => e.category === "OFFICIAL_SOURCE" || e.category === "OFFICIAL_REGISTRY");
+    const hasListingUrl = Boolean(report.internshipUrl);
+    const domainReachable = report.listingDetails && report.listingDetails.domainReachable;
+
+    const companyVerification = {
+      companyName: report.companyName || "Target Employer",
+      identity: {
+        status: officialSourceFound ? "pass" : hasEvidence ? "pass" : "warn",
+        badge: officialSourceFound ? "Official Source Found" : hasEvidence ? "Search Records Found" : "Unverified Entity",
+        detail: officialSourceFound
+          ? "Verified against official company registries and career indexes."
+          : hasEvidence
+            ? `Discovered ${report.evidence.length} external search sources for this entity.`
+            : "Limited external registry or corporate footprints confirmed."
+      },
+      website: {
+        status: domainReachable ? "pass" : hasListingUrl ? "warn" : "pass",
+        badge: domainReachable ? "Domain Verified" : hasListingUrl ? "Domain Unreachable" : "Standard Reference",
+        detail: hasListingUrl
+          ? (domainReachable ? "Target employer careers domain is live and accessible." : "Unable to establish secure connection to provided listing link.")
+          : "Evaluation relied on company search citations and offer text."
+      },
+      recruiter: {
+        status: riskLevel === "danger" ? "fail" : riskLevel === "warning" ? "warn" : "pass",
+        badge: riskLevel === "danger" ? "High Risk Signals" : riskLevel === "warning" ? "Caution Advised" : "Standard Channel",
+        detail: riskLevel === "danger"
+          ? "Payment demand or communication channel violates standard employment practices."
+          : riskLevel === "warning"
+            ? "Ensure recruiter correspondence originates from verified corporate domain email."
+            : "No recruiter impersonation or payment red flags triggered."
+      }
+    };
+
+    // Recommended actions
+    const recommendedActions = [];
+    if (report.recommendationExplanation) {
+      recommendedActions.push(report.recommendationExplanation);
+    }
+
+    if (riskLevel === "danger") {
+      recommendedActions.push("Do NOT transfer any money, registration fees, or equipment deposits under any circumstance.");
+      recommendedActions.push("Immediately cease contact with the sender across all communication channels.");
+      recommendedActions.push("Verify the position independently by calling the company's verified corporate headquarters.");
+    } else if (riskLevel === "warning") {
+      recommendedActions.push("Insist on written correspondence using an official corporate domain email address (@company.com).");
+      recommendedActions.push("Refuse text-only interviews; insist on a scheduled video conference with human resources.");
+      recommendedActions.push("Search LinkedIn for the recruiter's full name to verify their active corporate role.");
+    } else {
+      recommendedActions.push("Always double-check that the sender's email domain accurately matches the company's real website.");
+      recommendedActions.push("Verify the internship position is officially listed on the company's careers portal.");
+      recommendedActions.push("Keep copies of all interview scheduling notes and formal offer documentation.");
+    }
+
+    return {
+      score: score,
+      riskLevel: riskLevel,
+      classification: classification,
+      riskBadge: riskBadge,
+      summary: summary,
+      companyVerification: companyVerification,
+      warningSigns: warningSigns,
+      recommendedActions: recommendedActions,
+      companyName: report.companyName,
+      internshipUrl: report.internshipUrl,
+      sampleText: report.findings || ""
+    };
+  }
+
+  function getRuleWhyItMatters(category, ruleName) {
+    if (category === "PAYMENT_FRAUD") {
+      return "Legitimate employers never require job seekers to pay money for equipment, training modules, or background checks.";
+    }
+    if (category === "UNOFFICIAL_COMMUNICATION") {
+      return "Encrypted chat platforms and generic freemail accounts are commonly used to prevent accountability and mask fraudulent identities.";
+    }
+    if (category === "SUSPICIOUS_DOMAIN" || category === "OFFICIAL_PORTAL_BYPASS") {
+      return "Spoofed or unconfirmed domains allow malicious actors to impersonate reputable brands.";
+    }
+    return "Adhering to verified recruitment workflows prevents credential theft and financial losses.";
+  }
+
+  function extractCompanyFromText(text) {
+    if (!text) return null;
+    const match = text.match(/(?:at|from|with|by)\s+([A-Z][A-Za-z0-9&.\s]{2,30}?)(?=[,.;\n]|\s+for|\s+as|\s+to|\s+via|\s+is|\s+in)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    return null;
   }
 
   // Render Full Results Interface
@@ -439,8 +578,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const statusIcon = status === "pass"
         ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
         : status === "warn"
-        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+          ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+          : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
       return `
         <div class="verification-item">
@@ -541,6 +680,8 @@ document.addEventListener("DOMContentLoaded", () => {
       score: data.score,
       riskLevel: data.riskLevel,
       classification: data.classification || "Result",
+      companyName: data.companyName,
+      internshipUrl: data.internshipUrl,
       data: data
     };
 
@@ -587,7 +728,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (found) {
           cancelPendingAnalysisScroll();
           if (scannerEmptyState) scannerEmptyState.classList.add("hidden");
-          offerInput.value = found.data.sampleText || "";
+          if (companyInput && found.companyName) companyInput.value = found.companyName;
+          if (urlInput) urlInput.value = found.internshipUrl || "";
+          if (offerInput) offerInput.value = found.data.sampleText || "";
           renderAnalysisResult(found.data);
           analysisResult.classList.add("visible");
           smoothScrollToElement(analysisResult);
@@ -612,4 +755,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // On page load, fetch recent checks from Spring Boot database
+  loadRecentChecksFromBackend();
 });
