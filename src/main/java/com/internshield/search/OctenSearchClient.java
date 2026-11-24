@@ -1,4 +1,3 @@
-
 package com.internshield.search;
 
 import java.net.URI;
@@ -7,16 +6,19 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import org.springframework.stereotype.Component;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+@Component
 public class OctenSearchClient {
 
     private static final String API_URL = "https://api.octen.ai/search";
 
-    private final HttpClient httpClient; // Sends the API request
-    private final ObjectMapper objectMapper; // Converts Java objects to/from JSON
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
     public OctenSearchClient() {
         this.httpClient = HttpClient.newBuilder()
@@ -26,10 +28,8 @@ public class OctenSearchClient {
         this.objectMapper = new ObjectMapper();
     }
 
-    public JsonNode search(String query)
-            throws Exception {
-
-        String apiKey = System.getenv("OCTEN_API_KEY"); // Reads your API key securely
+    public JsonNode search(String query) throws Exception {
+        String apiKey = System.getenv("OCTEN_API_KEY");
 
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException(
@@ -40,7 +40,7 @@ public class OctenSearchClient {
         requestBody.put("query", query);
         requestBody.put("count", 5);
 
-        HttpRequest request = HttpRequest.newBuilder() // Creates the POST request
+        HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(API_URL))
                 .header("Content-Type", "application/json")
                 .header("x-api-key", apiKey)
@@ -49,16 +49,15 @@ public class OctenSearchClient {
                         objectMapper.writeValueAsString(requestBody)))
                 .build();
 
-        HttpResponse<String> response = httpClient.send( // Receives Octen's response
+        HttpResponse<String> response = httpClient.send(
                 request,
                 HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != 200) {
-            throw new RuntimeException(
-                    "HTTP error: " + response.statusCode());
+            throw new RuntimeException("HTTP error: " + response.statusCode());
         }
 
-        JsonNode jsonResponse = objectMapper.readTree(response.body()); // Lets us read the returned JSON
+        JsonNode jsonResponse = objectMapper.readTree(response.body());
 
         if (jsonResponse.path("code").asInt(-1) != 0) {
             throw new RuntimeException(
