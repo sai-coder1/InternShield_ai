@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InternShield AI | Protect Your Career from Job Scams</title>
+  <meta name="description" content="InternShield AI helps students and job seekers detect fraudulent internship offers, fee traps, and fake recruiters before applying.">
+
+  <!-- Core Styles -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <!-- ======================================================================
+       Site Header / Navigation
+       ====================================================================== -->
+  <header class="site-header" id="top">
+    <div class="container">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <a href="#top" class="brand-logo" aria-label="InternShield AI Home">
+          <div class="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="brand-name">InternShield <span>AI</span></div>
+        </a>
+        <span class="header-demo-tag"><span class="demo-pulse"></span> DEMO MODE</span>
+      </div>
+
+      <!-- Desktop & Mobile Navigation Links -->
+      <nav class="nav-menu" id="navMenu" aria-label="Main Navigation">
+        <a href="#scanner" class="nav-link">Scanner</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#red-flags" class="nav-link">Red Flags</a>
+        <a href="#checklist" class="nav-link">Checklist</a>
+        <a href="login.html" class="nav-link nav-link-mobile-only">Sign In</a>
+        <a href="register.html" class="nav-link nav-link-mobile-only">Create Account</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="login.html" class="btn btn-secondary btn-sm">Sign In</a>
+        <a href="#scanner" class="btn btn-outline btn-sm">Check Offer</a>
+      </div>
+
+      <!-- Mobile Hamburger Button -->
+      <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================================================================
+       Hero Section
+       ====================================================================== -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          <span>Cyber Defense for Job Seekers</span>
+        </div>
+
+        <h1 class="hero-title">
+          Stay Safe. <span class="gradient-text">Apply Smart.</span>
+        </h1>
+
+        <p class="hero-description">
+          InternShield AI equips students and fresh graduates with rapid scam pattern detection.
+          Inspect job postings, offer letters, and recruiter messages to spot fraudulent payment demands and fake hiring schemes before you commit.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#scanner" id="heroCheckCta" class="btn btn-primary btn-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+            Check a Job Offer
+          </a>
+          <a href="#red-flags" class="btn btn-secondary btn-lg">
+            View Scam Signals
+          </a>
+        </div>
+
+        <div class="hero-highlights">
+          <div class="highlight-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Training & Registration Fee Auditing</span>
+          </div>
+          <div class="highlight-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Recruiter Channel Verification</span>
+          </div>
+          <div class="highlight-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>100% Free for Students</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       Interactive Offer Scanner Demo Section
+       ====================================================================== -->
+  <section class="scanner-section" id="scanner">
+    <div class="container">
+      <div class="scanner-card">
+        <div class="scanner-header">
+          <div class="scanner-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span>Internship & Job Offer Risk Scanner</span>
+          </div>
+          <span class="badge badge-info">Interactive Simulation Mode</span>
+        </div>
+
+        <!-- Sample Scenarios Quick Selection -->
+        <div class="scenario-chips-wrapper">
+          <span class="scenario-label">Try a realistic test case or type your own:</span>
+          <div class="scenario-chips">
+            <button type="button" class="chip-btn" data-scenario="fee_scam">🚨 Training Fee Demand</button>
+            <button type="button" class="chip-btn" data-scenario="telegram_scam">💬 Telegram Chat Interview</button>
+            <button type="button" class="chip-btn" data-scenario="legitimate_offer">✅ Legitimate Offer Sample</button>
+          </div>
+        </div>
+
+        <!-- Text Input Area -->
+        <div class="form-group">
+          <label for="offerInput" class="form-label">Paste Offer Email, Text Message, or Job Description:</label>
+          <textarea
+            id="offerInput"
+            class="form-textarea"
+            placeholder="Paste the offer email, WhatsApp/Telegram message, or job description here... (e.g., 'Selected for internship, please submit refundable registration fee of $150...')"></textarea>
+        </div>
+
+        <div class="scanner-actions">
+          <div class="scanner-note">
+            <span>🛡️ Simulated client evaluation based on common fraud patterns.</span>
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <button type="button" id="clearBtn" class="btn btn-secondary btn-sm">Clear</button>
+            <button type="button" id="analyzeBtn" class="btn btn-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              Analyze Offer
+            </button>
+          </div>
+        </div>
+
+        <!-- Scanner Empty State (Awaiting input) -->
+        <div class="scanner-empty-state" id="scannerEmptyState">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <h4 class="empty-state-title">Ready for Analysis</h4>
+          <p class="empty-state-desc">
+            Select one of the sample scenarios above or paste your job offer email/message to run an instant risk assessment.
+          </p>
+        </div>
+
+        <!-- Scanning State Indicator -->
+        <div class="scanning-indicator" id="scanningIndicator">
+          <div class="scanner-spinner"></div>
+          <div>
+            <strong>Evaluating indicators...</strong>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">Analyzing offer text against known scam signatures and fee patterns.</p>
+          </div>
+        </div>
+
+        <!-- Upgraded Analysis Results Card -->
+        <div class="analysis-result" id="analysisResult" aria-live="polite">
+          <!-- 1. Circular Progress Gauge & Risk Score Overview -->
+          <div class="result-overview-card">
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120" width="130" height="130">
+                <circle class="gauge-track" cx="60" cy="60" r="50" stroke-width="10" fill="none" />
+                <circle id="gaugeProgressRing" class="gauge-progress" cx="60" cy="60" r="50" stroke-width="10" fill="none" stroke-dasharray="314.159" stroke-dashoffset="314.159" />
+              </svg>
+              <div class="gauge-inner-text">
+                <span id="gaugeScoreValue" class="gauge-score">0%</span>
+                <span class="gauge-label">Risk Score</span>
+              </div>
+            </div>
+
+            <div class="overview-meta">
+              <div class="overview-badge-row">
+                <span id="resultClassificationBadge" class="classification-badge badge-danger">High Risk</span>
+                <span class="demo-pill">🔬 Simulated Demo Result</span>
+              </div>
+              <h3 id="resultHeading" class="overview-heading">Risk Assessment</h3>
+              <p id="resultSummary" class="overview-summary"></p>
+            </div>
+          </div>
+
+          <!-- 2. Company Verification Summary Card -->
+          <div class="company-verification-card">
+            <div class="block-header">
+              <h4 class="block-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="8.5" cy="7" r="4"/>
+                  <polyline points="17 11 19 13 23 9"/>
+                </svg>
+                <span>Company Verification Summary</span>
+              </h4>
+              <span class="demo-pill">Demo Indicators</span>
+            </div>
+            <div class="verification-grid" id="companyVerificationGrid">
+              <!-- Dynamically populated via JS -->
+            </div>
+          </div>
+
+          <!-- 3. Detected Warning Signs Cards -->
+          <div class="results-section-block">
+            <div class="block-header">
+              <h4 class="block-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--status-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span>Detected Signals & Warning Signs</span>
+              </h4>
+            </div>
+            <div class="warning-cards-grid" id="warningCardsGrid">
+              <!-- Dynamically populated via JS -->
+            </div>
+          </div>
+
+          <!-- 4. Recommended Actions Section -->
+          <div class="recommended-actions-card" id="recommendedActionsCard">
+            <div class="block-header">
+              <h4 class="block-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 11 12 14 22 4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span>Recommended Safety Actions</span>
+              </h4>
+            </div>
+            <div class="action-list" id="recommendedActionsList">
+              <!-- Dynamically populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Recent Checks Section (Session Memory) -->
+        <div class="recent-checks-card" id="recentChecksCard">
+          <div class="recent-header">
+            <div class="recent-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span>Recent Checks (Current Session)</span>
+            </div>
+            <span class="recent-badge">Stored in current session</span>
+          </div>
+          <div class="recent-empty-state" id="recentEmptyState">
+            No previous checks recorded in this session yet. Test a scenario or paste an offer to see history.
+          </div>
+          <div class="recent-list" id="recentChecksList" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       Features Section: Scam Detection Capabilities
+       ====================================================================== -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Platform Capabilities</span>
+        <h2 class="section-title">How InternShield Protects You</h2>
+        <p class="section-subtitle">
+          Engineered to identify the subtle warning signs in modern student-targeted recruitment scams.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Fee & Deposit Trap Detection</h3>
+          <p class="feature-text">
+            Flags offers that ask applicants for "security deposits", "mandatory software licenses", or "training fees" disguised as refundable onboarding expenses.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Channel & Identity Auditing</h3>
+          <p class="feature-text">
+            Identifies recruiters using generic freemail addresses (@gmail.com) for established corporations or demanding text-only interviews over Telegram and WhatsApp.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Unrealistic Offer Signals</h3>
+          <p class="feature-text">
+            Cross-checks salary and stipend claims against industry baselines, spotting unrealistically high wages paired with zero required skill prerequisites.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Actionable Student Defense</h3>
+          <p class="feature-text">
+            Provides plain-language guidance, direct verification checklists, and reporting resources so you always know your next safe move.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       Scam Red Flags Quick Reference
+       ====================================================================== -->
+  <section class="red-flags-section" id="red-flags">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Warning Signs</span>
+        <h2 class="section-title">Common Internship Scam Red Flags</h2>
+        <p class="section-subtitle">
+          If you observe any of the following patterns, proceed with caution and do not transmit sensitive personal data or funds.
+        </p>
+      </div>
+
+      <div class="red-flags-grid">
+        <div class="flag-item">
+          <div class="flag-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="flag-content">
+            <h4>Payment for "Equipment" or "Training"</h4>
+            <p>You are sent a fake check to purchase equipment from a specific vendor, or asked to pay an upfront onboarding fee.</p>
+          </div>
+        </div>
+
+        <div class="flag-item">
+          <div class="flag-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="8.5" cy="7" r="4"/>
+              <line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+          </div>
+          <div class="flag-content">
+            <h4>No Formal Technical or Live Interview</h4>
+            <p>Immediate job offers given after answering 3-4 simple questions in a Google Form or Telegram chat without video or voice verification.</p>
+          </div>
+        </div>
+
+        <div class="flag-item">
+          <div class="flag-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+          </div>
+          <div class="flag-content">
+            <h4>Mismatched Corporate Domains</h4>
+            <p>The recruiter claims to represent a Fortune 500 company but emails from @gmail.com or an address with subtle misspellings (e.g., @micros0ft-careers.com).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       Verification Checklist & FAQ
+       ====================================================================== -->
+  <section class="features-section" id="checklist">
+    <div class="container" style="max-width: 800px;">
+      <div class="section-header">
+        <span class="section-tag">Verification Guide</span>
+        <h2 class="section-title">Job Verification Checklist</h2>
+        <p class="section-subtitle">
+          Follow these practical steps to confirm whether an opportunity is authentic before accepting.
+        </p>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-item active">
+          <button class="accordion-header" type="button">
+            <span>1. Inspect the Sender's Email Domain</span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            Verify the exact domain after the '@' symbol. Authentic recruiters communicate through official company domains (e.g. <code>recruiter@google.com</code>). Be alert for free public domains or subtle typo domains.
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" type="button">
+            <span>2. Cross-check the Job on the Official Careers Page</span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            Navigate independently to the company's official careers or jobs page. Search for the job ID or title. If the position does not exist on their official portal, reach out to their HR department through their verified contact email.
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" type="button">
+            <span>3. The Golden Rule: Real Employers Never Charge Fees</span>
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            No genuine company will ever ask a student to pay application fees, ID badge fees, or software installation charges. Any demand for upfront payment is an immediate confirmation of a scam.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       Footer
+       ====================================================================== -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="brand-logo">
+            <div class="brand-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <div class="brand-name">InternShield <span>AI</span></div>
+          </div>
+          <p class="footer-bio">
+            Protecting student careers through intelligent scam awareness and recruitment verification tools.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="footer-heading">Navigation</h4>
+          <div class="footer-links">
+            <a href="#top">Home</a>
+            <a href="#scanner">Offer Scanner</a>
+            <a href="#features">Features</a>
+            <a href="#red-flags">Scam Red Flags</a>
+            <a href="#checklist">Verification Checklist</a>
+            <a href="login.html">Sign In</a>
+            <a href="register.html">Create Account</a>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="footer-heading">Student Resources</h4>
+          <div class="footer-links">
+            <a href="https://www.consumer.ftc.gov/articles/job-scams" target="_blank" rel="noopener">FTC Job Scams Guide</a>
+            <a href="https://www.ic3.gov" target="_blank" rel="noopener">FBI Internet Crime (IC3)</a>
+            <a href="#scanner">Sample Test Cases</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Educational Disclaimer -->
+      <div class="footer-disclaimer">
+        <strong>Important Disclaimer:</strong> InternShield AI provides educational guidance and preliminary risk indicator analysis based on common fraud patterns. It does not replace independent due diligence. Always verify job offers directly through official employer portals before providing personal information or signing agreements.
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 InternShield AI. All rights reserved.</div>
+        <div style="color: var(--text-muted);">Built with modern HTML5, CSS3, and Vanilla JavaScript.</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Core Scripts -->
+  <script src="js/mockData.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
