@@ -3,6 +3,7 @@ package com.internshield.report;
 import com.internshield.common.exception.ResourceNotFoundException;
 import com.internshield.report.dto.ResearchRequest;
 import com.internshield.report.dto.ResearchResponse;
+import com.internshield.report.dto.ResearchResultUpdateRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,5 +60,21 @@ public class ResearchService {
         report.setStatus(status);
         ResearchReport updated = researchReportRepository.save(report);
         return ResearchResponse.fromEntity(updated);
+    }
+
+    public ResearchResponse updateResearchResults(Long id, ResearchResultUpdateRequest request) {
+        ResearchReport report = researchReportRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Research report not found with id: " + id));
+
+        report.setRiskScore(request.riskScore());
+        report.setRiskLevel(request.riskLevel());
+        report.setFindings(request.findings());
+        report.setRecommendation(request.recommendation());
+        if (request.status() != null) {
+            report.setStatus(request.status());
+        }
+
+        ResearchReport saved = researchReportRepository.save(report);
+        return ResearchResponse.fromEntity(saved);
     }
 }
