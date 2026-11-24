@@ -1,5 +1,8 @@
 package com.internshield.report;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.internshield.evidence.Evidence;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,12 +10,15 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -51,6 +57,10 @@ public class ResearchReport {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "researchReport", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Evidence> evidenceList = new ArrayList<>();
 
     public ResearchReport() {
     }
@@ -166,6 +176,24 @@ public class ResearchReport {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public List<Evidence> getEvidenceList() {
+        return evidenceList;
+    }
+
+    public void setEvidenceList(List<Evidence> evidenceList) {
+        this.evidenceList = evidenceList;
+    }
+
+    public void addEvidence(Evidence evidence) {
+        evidenceList.add(evidence);
+        evidence.setResearchReport(this);
+    }
+
+    public void removeEvidence(Evidence evidence) {
+        evidenceList.remove(evidence);
+        evidence.setResearchReport(null);
     }
 
     @Override
