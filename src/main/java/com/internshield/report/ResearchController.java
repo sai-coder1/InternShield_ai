@@ -22,9 +22,30 @@ import java.util.List;
 public class ResearchController {
 
     private final ResearchService researchService;
+    private final com.internshield.research.ResearchOrchestrator researchOrchestrator;
 
     public ResearchController(ResearchService researchService) {
+        this(researchService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ResearchController(
+            ResearchService researchService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            com.internshield.research.ResearchOrchestrator researchOrchestrator) {
         this.researchService = researchService;
+        this.researchOrchestrator = researchOrchestrator;
+    }
+
+    @PostMapping("/analyze")
+    public ResponseEntity<?> analyze(@Valid @RequestBody ResearchRequest request) {
+        if (researchOrchestrator != null) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                    researchOrchestrator.executeCompleteAnalysis(
+                            new com.internshield.report.dto.AnalysisRequest(request.companyName(), request.internshipUrl(), null))
+            );
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(researchService.createResearchRequest(request));
     }
 
     @PostMapping
