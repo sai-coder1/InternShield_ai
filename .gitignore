@@ -18,3 +18,7 @@ target/
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Generated logs
+*.log
+mvn-error.txt
