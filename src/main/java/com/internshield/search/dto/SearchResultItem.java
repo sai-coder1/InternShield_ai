@@ -4,6 +4,10 @@ public record SearchResultItem(
         String title,
         String url,
         String snippet,
-        String source
+        String source,
+        String query
 ) {
+    public SearchResultItem(String title, String url, String snippet, String source) {
+        this(title, url, snippet, source, "");
+    }
 }

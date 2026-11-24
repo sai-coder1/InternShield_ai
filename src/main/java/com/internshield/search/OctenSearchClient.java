@@ -18,7 +18,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.internshield.search.dto.SearchResultItem;
 
 @Component
-public class OctenSearchClient {
+public class OctenSearchClient implements SearchProvider {
 
     private final String apiUrl;
     private final String apiKey;
@@ -130,8 +130,14 @@ public class OctenSearchClient {
         return jsonResponse.path("data").path("results");
     }
 
+    @Override
     public List<SearchResultItem> searchAndExtract(String query) throws Exception {
-        JsonNode resultsNode = search(query);
+        return searchAndExtract(query, defaultCount);
+    }
+
+    @Override
+    public List<SearchResultItem> searchAndExtract(String query, int count) throws Exception {
+        JsonNode resultsNode = search(query, count);
         List<SearchResultItem> items = new ArrayList<>();
         if (resultsNode != null && resultsNode.isArray()) {
             for (JsonNode node : resultsNode) {
@@ -153,7 +159,7 @@ public class OctenSearchClient {
                 }
 
                 if (!url.isBlank()) {
-                    items.add(new SearchResultItem(title, url, snippet, source));
+                    items.add(new SearchResultItem(title, url, snippet, source, query));
                 }
             }
         }
