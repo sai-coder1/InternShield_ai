@@ -30,4 +30,4 @@ services:
       - key: SUPABASE_ANON_KEY
         value: sb_publishable_720rHpnaBsofC0xpDNdAxw_DzOG3qCz
       - key: CORS_ALLOWED_ORIGINS
-        value: "*"
+        sync: false
