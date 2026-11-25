@@ -1,11 +1,11 @@
 package com.internshield.analysis;
 
+import com.internshield.ai.AIAnalysisResult;
 import com.internshield.evidence.Evidence;
 import com.internshield.evidence.EvidenceCategory;
 import com.internshield.internship.dto.ExtractedInternshipDetails;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -15,12 +15,12 @@ import java.util.regex.Pattern;
 @Service
 public class RiskAssessmentEngine {
 
-    // Regex patterns for the 11 checks (with negative lookbehinds/lookaheads to prevent false positives on 'no fee', 'never request fees', 'Application fee: 0')
+    // Regex patterns for the 12 deterministic checks
     private static final Pattern REGISTRATION_FEE_PATTERN = Pattern.compile(
-            "(?i)(?<!(?:no |never |without |free of ))\\b(registration(?: and [a-z]+)? fee|registration charges|pay to register|form fee|application fee(?![:\\s]*(?:[$₹€£]?\\s*0\\b|none|free|nil))(?: of rs)?|enrollment fee|fee of \\$\\d+)\\b");
+            "(?i)(?<!(?:no |never |without |free of |no [a-zA-Z]{1,15} or ))(?:\\b(registration(?: and [a-z]+)? fee|registration charges|pay to register|form fee|application fee(?![:\\s]*(?:[$₹€£]?\\s*0\\b|none|free|nil))(?: of rs)?|enrollment fee|fee of \\$\\d+|upfront payment|upfront fee|pay upfront|pay to start|advance payment|advance fee|mandatory payment)|(?:^|(?<=[\\s(]))(?:[$₹€£]?\\s*\\d+[\\d,]*\\s*(?:certification|program|training|fee|charges|deposit)|pay(?:ment)?\\s*(?:of\\s*)?[$₹€£]\\s*\\d+))\\b");
 
     private static final Pattern TRAINING_FEE_PATTERN = Pattern.compile(
-            "(?i)(?<!(?:no |never |without |free of ))\\b(training fee|training charges|pay for training|mandatory course fee|onboarding charges|certification fee to start)\\b");
+            "(?i)(?<!(?:no |never |without |free of |no [a-zA-Z]{1,15} or ))\\b(training fee|training charges|pay for training|mandatory course fee|onboarding charges|certification fee(?: to start)?|certification charges|certification program|paid certification|certificate fee|pay for certification|course fee|exam fee|complete (?:our|a) (?:[$₹€£]?\\s*\\d+[\\d,]*\\s*)?certification(?: program)?)\\b");
 
     private static final Pattern PAYMENT_AFTER_FREE_PATTERN = Pattern.compile(
             "(?i)(?<!(?:no |never |without |free of ))\\b(security deposit|security fee|equipment (?:security )?fee|refundable (?:registration|equipment|caution|security)?\\s*(?:deposit|amount|fee)|refundable caution deposit|refundable amount|pay to confirm seat|laptop deposit|equipment charges)\\b");
@@ -32,7 +32,7 @@ public class RiskAssessmentEngine {
             "(?i)\\b(telegram|t\\.me\\/|whatsapp|wa\\.me\\/|chat group)\\b");
 
     private static final Pattern GUARANTEED_SELECTION_PATTERN = Pattern.compile(
-            "(?i)\\b(guaranteed selection|direct selection|no interview|100% selection|offer letter without interview|immediate offer letter)\\b");
+            "(?i)\\b(guaranteed (?:selection|job|a job|placement|employment|hiring|offer)|100% (?:guaranteed(?: a job| job)?|selection|placement|job guarantee)|job guarantee|placement guarantee|direct selection|no interview|offer letter without interview|immediate offer letter)\\b");
 
     private static final Pattern UNCLEAR_RESPONSIBILITIES_PATTERN = Pattern.compile(
             "(?i)\\b(simple typing|copy paste|data entry work from home|fill captchas|earn 2000 daily|no skills required)\\b");
@@ -41,33 +41,93 @@ public class RiskAssessmentEngine {
             "(?i)\\b(stipend|salary)[:\\s]*(?:rs\\.?|inr|₹|\\$)?\\s*(?:[5-9]\\d{4}|[1-9]\\d{5}|[5-9]\\d{2}\\s*(?:per week|/week)|[1-9]\\d{3}\\s*(?:per week|/week))\\s*(?:per month|/month|p\\.m\\.|per week|/week)?\\b");
 
     private static final Pattern ARTIFICIAL_URGENCY_PATTERN = Pattern.compile(
-            "(?i)\\b(pay within|urgent requirement|offer expires in|valid for today only|last \\d+ seats|immediate payment|within \\d+ hours?)\\b");
+            "(?i)\\b(pay within|urgent requirement|offer expires in|valid for today only|last \\d+ seats|limited seats?(?:[:\\s]*\\d+)?|seats? remaining|\\b\\d+ seats? left\\b|only \\d+ seats?|immediate payment|within \\d+ hours?|hurry up|seats filling fast)\\b");
 
     private static final Pattern SUSPICIOUS_DOMAIN_TLDS = Pattern.compile(
             "(?i)\\.(xyz|top|buzz|click|club|rest|link|cam|work|gq|cf|tk|ml)$");
 
+    private static final Pattern UNOFFICIAL_PAYMENT_PATTERN = Pattern.compile(
+            "(?i)\\b(payment[:\\s]+(?:via\\s+|through\\s+)?(?:upi|gpay|google pay|phonepe|paytm|bhim|qr code|crypto|cryptocurrency)|pay(?:ment)? (?:via|through|using) (?:upi|gpay|google pay|phonepe|paytm|bhim|qr code|crypto)|send (?:fee|money|amount|payment) (?:to|via) upi|(?:upi|gpay|phonepe|paytm) id|scan qr(?: code)? to pay|payment[:\\s]*upi)\\b");
+
+    // Semantic keyword dictionaries for mapping Gemini AI qualitative findings into deterministic rules
+    private static final String[] UPFRONT_FEE_KEYWORDS = {
+            "upfront", "registration fee", "application fee", "enrollment fee",
+            "onboarding fee", "processing fee", "kit charge", "charge of rs",
+            "charge of inr", "charge of $", "pay to apply", "pay before",
+            "advance payment", "advance fee", "initial payment", "remit advance",
+            "fee demand", "fee demanded", "fee required"
+    };
+
+    private static final String[] PAID_TRAINING_CERT_KEYWORDS = {
+            "training fee", "paid training", "certification fee", "paid certification",
+            "certification program", "mandatory certificate", "mandatory course",
+            "course fee", "pay for training", "pay for certification", "pay for course",
+            "certificate fee", "program fee"
+    };
+
+    private static final String[] SECURITY_DEPOSIT_KEYWORDS = {
+            "security deposit", "caution deposit", "caution money", "refundable deposit",
+            "equipment deposit", "laptop deposit", "seat confirmation deposit", "deposit of rs",
+            "refundable amount"
+    };
+
+    private static final String[] SUSPICIOUS_PAYMENT_KEYWORDS = {
+            "upi", "qr code", "gpay", "google pay", "phonepe", "paytm", "crypto",
+            "bitcoin", "phone wallet", "personal bank account", "informal payment",
+            "p2p payment", "unverified payment", "personal account"
+    };
+
+    private static final String[] GUARANTEED_JOB_KEYWORDS = {
+            "guaranteed job", "guaranteed placement", "guaranteed selection", "direct appointment",
+            "direct placement", "direct hiring", "direct offer", "no interview", "without interview",
+            "zero screening", "no screening", "without assessment", "without technical evaluation",
+            "100% placement", "100% selection", "100% guaranteed"
+    };
+
+    private static final String[] URGENCY_PRESSURE_KEYWORDS = {
+            "limited seats", "urgency", "urgent requirement", "valid today", "expires in",
+            "immediate payment", "seats remaining", "seats left", "pressure tactic", "deadline pressure"
+    };
+
+    private static final String[] SCAM_RECORD_KEYWORDS = {
+            "scam report", "scam allegation", "fraud report", "fake offer", "unregistered entity",
+            "impersonat", "complaints found", "previous scam"
+    };
+
     /**
-     * Executes deterministic rule evaluation across extracted listing details and collected research evidence.
-     *
-     * @param companyName company under review
-     * @param listing extracted details from URL or pasted text
-     * @param evidenceList persisted research evidence items
-     * @return comprehensive risk assessment result with transparent scoring
+     * Preserved 3-argument method for backward compatibility.
      */
     public RiskAssessmentResult evaluateRisk(
             String companyName,
             ExtractedInternshipDetails listing,
             List<Evidence> evidenceList) {
+        return evaluateRisk(companyName, listing, evidenceList, null);
+    }
+
+    /**
+     * Executes deterministic rule evaluation across extracted listing details, collected research evidence,
+     * and qualitative Gemini AI credibility findings.
+     *
+     * @param companyName company under review
+     * @param listing extracted details from URL or pasted text
+     * @param evidenceList persisted research evidence items
+     * @param aiResult optional Gemini AI analysis result
+     * @return comprehensive risk assessment result with transparent scoring
+     */
+    public RiskAssessmentResult evaluateRisk(
+            String companyName,
+            ExtractedInternshipDetails listing,
+            List<Evidence> evidenceList,
+            AIAnalysisResult aiResult) {
 
         List<RiskRuleViolation> violations = new ArrayList<>();
         List<String> positiveSignals = new ArrayList<>();
 
-        int score = 10; // Baseline vigilance score (never 0)
+        int score = 10; // Baseline vigilance score
         StringBuilder breakdown = new StringBuilder();
         breakdown.append("Baseline vigilance score: +10.\n");
 
         String combinedText = buildCombinedCorpus(listing, evidenceList);
-        String lowerText = combinedText.toLowerCase(Locale.ROOT);
 
         // Check for evidence sufficiency
         boolean hasListing = listing != null && !listing.unreachable() && !listing.rawContent().isBlank();
@@ -86,7 +146,8 @@ public class RiskAssessmentEngine {
             );
         }
 
-        // Rule 1: Registration fee requests (+45, CRITICAL)
+        // Rule 1: Registration / Upfront fee requests (+45, CRITICAL)
+        boolean rule01Triggered = false;
         if (REGISTRATION_FEE_PATTERN.matcher(combinedText).find()) {
             violations.add(new RiskRuleViolation(
                     "RULE_01_REG_FEE",
@@ -98,10 +159,12 @@ public class RiskAssessmentEngine {
                     findMatches(REGISTRATION_FEE_PATTERN, combinedText)
             ));
             score += 45;
+            rule01Triggered = true;
             breakdown.append("Triggered Rule 01 (Registration Fee): +45.\n");
         }
 
         // Rule 2: Training or onboarding fee demands (+45, CRITICAL)
+        boolean rule02Triggered = false;
         if (TRAINING_FEE_PATTERN.matcher(combinedText).find()) {
             violations.add(new RiskRuleViolation(
                     "RULE_02_TRAINING_FEE",
@@ -113,10 +176,12 @@ public class RiskAssessmentEngine {
                     findMatches(TRAINING_FEE_PATTERN, combinedText)
             ));
             score += 45;
+            rule02Triggered = true;
             breakdown.append("Triggered Rule 02 (Training Fee): +45.\n");
         }
 
         // Rule 3: Payment after advertising free / Security Deposit (+40, CRITICAL)
+        boolean rule03Triggered = false;
         if (PAYMENT_AFTER_FREE_PATTERN.matcher(combinedText).find()) {
             violations.add(new RiskRuleViolation(
                     "RULE_03_SECURITY_DEPOSIT",
@@ -128,6 +193,7 @@ public class RiskAssessmentEngine {
                     findMatches(PAYMENT_AFTER_FREE_PATTERN, combinedText)
             ));
             score += 40;
+            rule03Triggered = true;
             breakdown.append("Triggered Rule 03 (Security Deposit/Payment): +40.\n");
         }
 
@@ -151,7 +217,9 @@ public class RiskAssessmentEngine {
         if (!recruiterEmail.isBlank() && companyName != null && !companyName.isBlank()) {
             String emailDomain = extractDomainFromEmail(recruiterEmail);
             if (!emailDomain.isBlank() && !PUBLIC_EMAIL_DOMAINS.matcher(recruiterEmail).find()) {
-                String cleanComp = companyName.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+                String cleanComp = companyName.toLowerCase(Locale.ROOT)
+                        .replaceAll("\\b(pvt|ltd|limited|private|inc|llc|corp|corporation)\\b", "")
+                        .replaceAll("[^a-z0-9]", "");
                 String cleanDomain = emailDomain.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
                 if (cleanComp.length() > 3 && !cleanDomain.contains(cleanComp)) {
                     violations.add(new RiskRuleViolation(
@@ -185,6 +253,7 @@ public class RiskAssessmentEngine {
         }
 
         // Rule 7: Guaranteed Selection Without Evaluation (+25, HIGH)
+        boolean rule07Triggered = false;
         if (GUARANTEED_SELECTION_PATTERN.matcher(combinedText).find()) {
             violations.add(new RiskRuleViolation(
                     "RULE_07_GUARANTEED_SELECTION",
@@ -196,6 +265,7 @@ public class RiskAssessmentEngine {
                     findMatches(GUARANTEED_SELECTION_PATTERN, combinedText)
             ));
             score += 25;
+            rule07Triggered = true;
             breakdown.append("Triggered Rule 07 (Guaranteed Selection): +25.\n");
         }
 
@@ -230,6 +300,7 @@ public class RiskAssessmentEngine {
         }
 
         // Rule 10: Artificial Urgency or Pressure (+30, HIGH)
+        boolean rule10Triggered = false;
         if (ARTIFICIAL_URGENCY_PATTERN.matcher(combinedText).find()) {
             violations.add(new RiskRuleViolation(
                     "RULE_10_ARTIFICIAL_URGENCY",
@@ -241,6 +312,7 @@ public class RiskAssessmentEngine {
                     findMatches(ARTIFICIAL_URGENCY_PATTERN, combinedText)
             ));
             score += 30;
+            rule10Triggered = true;
             breakdown.append("Triggered Rule 10 (Urgency/Pressure): +30.\n");
         }
 
@@ -264,7 +336,168 @@ public class RiskAssessmentEngine {
             }
         }
 
-        // Mitigating Factors (Positive Signals)
+        // Rule 12: Informal / Peer-to-Peer Payment Demanded (UPI) (+35, HIGH)
+        boolean rule12Triggered = false;
+        boolean hasUpiMention = Pattern.compile("(?i)\\b(upi|gpay|phonepe|paytm|bhim)\\b").matcher(combinedText).find();
+        boolean feeKeywordsPresent = violations.stream().anyMatch(v -> "FINANCIAL_DEMAND".equals(v.category()))
+                || (listing != null && listing.feeDemanded());
+        if (UNOFFICIAL_PAYMENT_PATTERN.matcher(combinedText).find() || (hasUpiMention && feeKeywordsPresent)) {
+            List<String> upiMatches = findMatches(UNOFFICIAL_PAYMENT_PATTERN, combinedText);
+            if (upiMatches.isEmpty()) {
+                upiMatches = List.of("Payment: UPI / P2P Channel");
+            }
+            violations.add(new RiskRuleViolation(
+                    "RULE_12_UNOFFICIAL_PAYMENT",
+                    "Informal / Peer-to-Peer Payment Demanded (UPI)",
+                    "PAYMENT_METHOD",
+                    35,
+                    "HIGH",
+                    "The opportunity directs financial transactions through personal or peer-to-peer payment channels (UPI, Google Pay, PhonePe, Paytm, or crypto) rather than verified corporate invoicing.",
+                    upiMatches
+            ));
+            score += 35;
+            rule12Triggered = true;
+            breakdown.append("Triggered Rule 12 (UPI/P2P Payment Method): +35.\n");
+        }
+
+        // Qualitative Gemini AI Risk Signals mapping into deterministic scoring
+        if (aiResult != null && !aiResult.fallbackUsed() && aiResult.riskSignals() != null) {
+            boolean aiUpfrontDone = false;
+            boolean aiTrainingDone = false;
+            boolean aiDepositDone = false;
+            boolean aiUpiDone = false;
+            boolean aiGuaranteedDone = false;
+            boolean aiUrgencyDone = false;
+            boolean aiScamRecordDone = false;
+
+            for (String rawSignal : aiResult.riskSignals()) {
+                if (rawSignal == null || rawSignal.isBlank()) continue;
+                String lower = rawSignal.toLowerCase(Locale.ROOT);
+
+                if (containsAny(lower, UPFRONT_FEE_KEYWORDS)) {
+                    if (!rule01Triggered && !aiUpfrontDone) {
+                        violations.add(new RiskRuleViolation(
+                                "AI_RULE_UPFRONT_FEE",
+                                "AI Flagged: Upfront Registration Fee Demanded",
+                                "FINANCIAL_DEMAND",
+                                45,
+                                "CRITICAL",
+                                "Gemini AI identified upfront fee demands: " + rawSignal,
+                                List.of(rawSignal)
+                        ));
+                        score += 45;
+                        aiUpfrontDone = true;
+                        breakdown.append("Triggered AI Signal (Upfront Fee): +45.\n");
+                    } else {
+                        breakdown.append("AI Signal (Upfront Fee) already counted in deterministic rule evaluation.\n");
+                    }
+                } else if (containsAny(lower, PAID_TRAINING_CERT_KEYWORDS)) {
+                    if (!rule02Triggered && !aiTrainingDone) {
+                        violations.add(new RiskRuleViolation(
+                                "AI_RULE_PAID_TRAINING",
+                                "AI Flagged: Mandatory Training / Certification Fee",
+                                "FINANCIAL_DEMAND",
+                                45,
+                                "CRITICAL",
+                                "Gemini AI identified paid certification/training demands: " + rawSignal,
+                                List.of(rawSignal)
+                        ));
+                        score += 45;
+                        aiTrainingDone = true;
+                        breakdown.append("Triggered AI Signal (Paid Certification): +45.\n");
+                    } else {
+                        breakdown.append("AI Signal (Paid Training/Cert) already counted in deterministic rule evaluation.\n");
+                    }
+                } else if (containsAny(lower, SECURITY_DEPOSIT_KEYWORDS)) {
+                    if (!rule03Triggered && !aiDepositDone) {
+                        violations.add(new RiskRuleViolation(
+                                "AI_RULE_SECURITY_DEPOSIT",
+                                "AI Flagged: Mandatory Caution Deposit / Equipment Fee",
+                                "FINANCIAL_DEMAND",
+                                40,
+                                "CRITICAL",
+                                "Gemini AI identified security deposit or equipment fees: " + rawSignal,
+                                List.of(rawSignal)
+                        ));
+                        score += 40;
+                        aiDepositDone = true;
+                        breakdown.append("Triggered AI Signal (Security Deposit): +40.\n");
+                    } else {
+                        breakdown.append("AI Signal (Security Deposit) already counted in deterministic rule evaluation.\n");
+                    }
+                } else if (containsAny(lower, SUSPICIOUS_PAYMENT_KEYWORDS)) {
+                    if (!rule12Triggered && !aiUpiDone) {
+                        violations.add(new RiskRuleViolation(
+                                "AI_RULE_SUSPICIOUS_PAYMENT",
+                                "AI Flagged: Informal Payment Method (UPI/Wallet)",
+                                "PAYMENT_METHOD",
+                                35,
+                                "HIGH",
+                                "Gemini AI identified informal/P2P payment channels: " + rawSignal,
+                                List.of(rawSignal)
+                        ));
+                        score += 35;
+                        aiUpiDone = true;
+                        breakdown.append("Triggered AI Signal (Suspicious Payment): +35.\n");
+                    } else {
+                        breakdown.append("AI Signal (Suspicious Payment) already counted in deterministic rule evaluation.\n");
+                    }
+                } else if (containsAny(lower, GUARANTEED_JOB_KEYWORDS)) {
+                    if (!rule07Triggered && !aiGuaranteedDone) {
+                        violations.add(new RiskRuleViolation(
+                                "AI_RULE_GUARANTEED_JOB",
+                                "AI Flagged: Guaranteed Selection / Placement Claim",
+                                "RECRUITMENT_PROCESS",
+                                25,
+                                "HIGH",
+                                "Gemini AI identified guaranteed job claims without assessment: " + rawSignal,
+                                List.of(rawSignal)
+                        ));
+                        score += 25;
+                        aiGuaranteedDone = true;
+                        breakdown.append("Triggered AI Signal (Guaranteed Job): +25.\n");
+                    } else {
+                        breakdown.append("AI Signal (Guaranteed Job) already counted in deterministic rule evaluation.\n");
+                    }
+                } else if (containsAny(lower, URGENCY_PRESSURE_KEYWORDS)) {
+                    if (!rule10Triggered && !aiUrgencyDone) {
+                        violations.add(new RiskRuleViolation(
+                                "AI_RULE_URGENCY",
+                                "AI Flagged: Artificial Urgency & Seat Pressure",
+                                "PSYCHOLOGICAL_PRESSURE",
+                                30,
+                                "HIGH",
+                                "Gemini AI identified artificial urgency or pressure tactics: " + rawSignal,
+                                List.of(rawSignal)
+                        ));
+                        score += 30;
+                        aiUrgencyDone = true;
+                        breakdown.append("Triggered AI Signal (Urgency): +30.\n");
+                    } else {
+                        breakdown.append("AI Signal (Urgency) already counted in deterministic rule evaluation.\n");
+                    }
+                } else if (containsAny(lower, SCAM_RECORD_KEYWORDS)) {
+                    if (!aiScamRecordDone) {
+                        violations.add(new RiskRuleViolation(
+                                "AI_RULE_SCAM_HISTORY",
+                                "AI Flagged: Prior Scam Allegations or Unregistered Entity",
+                                "REPUTATION",
+                                25,
+                                "HIGH",
+                                "Gemini AI noted prior scam allegations or missing corporate identity: " + rawSignal,
+                                List.of(rawSignal)
+                        ));
+                        score += 25;
+                        aiScamRecordDone = true;
+                        breakdown.append("Triggered AI Signal (Scam History/Record): +25.\n");
+                    }
+                } else {
+                    breakdown.append("Unrecognized AI signal omitted from score impact: ").append(rawSignal).append("\n");
+                }
+            }
+        }
+
+        // Mitigating Factors (Positive Signals from Octen Evidence)
         if (evidenceList != null) {
             boolean hasOfficialRegistry = evidenceList.stream()
                     .anyMatch(e -> e.getCategory() == EvidenceCategory.OFFICIAL_REGISTRY);
@@ -291,10 +524,21 @@ public class RiskAssessmentEngine {
             }
         }
 
-        // Clamp score between 10 and 100
+        // Mitigating Factors from Gemini AI
+        if (aiResult != null && !aiResult.fallbackUsed() && aiResult.positiveSignals() != null 
+                && !aiResult.positiveSignals().isEmpty() && violations.isEmpty()) {
+            positiveSignals.addAll(aiResult.positiveSignals());
+            score -= 10;
+            breakdown.append("Mitigating Signal (Gemini AI Positive Verification): -10.\n");
+        }
+
+        // Clamp score between 0 and 100
+        // When genuine corporate credentials are confirmed and 0 violations occur, score reaches 0.
         // When high-risk communication or impersonation flags are tripped (e.g. Telegram recruitment, free webmail),
         // genuine corporate registry records cannot reduce risk below MODERATE vigilance (min 30).
-        int minScore = violations.stream().anyMatch(v -> "HIGH".equals(v.severity())) ? 30 : 10;
+        int minScore = violations.isEmpty()
+                ? 0
+                : (violations.stream().anyMatch(v -> "HIGH".equals(v.severity()) || "CRITICAL".equals(v.severity())) ? 30 : 10);
         score = Math.max(minScore, Math.min(100, score));
 
         // Determine Level and Recommendation
@@ -328,6 +572,16 @@ public class RiskAssessmentEngine {
                 true,
                 breakdown.toString()
         );
+    }
+
+    private boolean containsAny(String text, String[] keywords) {
+        if (text == null) return false;
+        for (String kw : keywords) {
+            if (text.contains(kw)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String buildCombinedCorpus(ExtractedInternshipDetails listing, List<Evidence> evidenceList) {

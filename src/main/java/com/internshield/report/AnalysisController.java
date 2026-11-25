@@ -1,5 +1,6 @@
 package com.internshield.report;
 
+import com.internshield.auth.SupabaseJwtService;
 import com.internshield.common.exception.ResourceNotFoundException;
 import com.internshield.evidence.Evidence;
 import com.internshield.evidence.EvidenceRepository;
@@ -16,8 +17,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Collections;
 import java.util.List;
@@ -30,34 +33,48 @@ public class AnalysisController {
     private final ResearchReportRepository researchReportRepository;
     private final EvidenceRepository evidenceRepository;
     private final InternshipListingExtractor listingExtractor;
+    private final SupabaseJwtService jwtService;
 
     public AnalysisController(
             ResearchOrchestrator orchestrator,
             ResearchReportRepository researchReportRepository,
             EvidenceRepository evidenceRepository,
-            InternshipListingExtractor listingExtractor) {
+            InternshipListingExtractor listingExtractor,
+            SupabaseJwtService jwtService) {
         this.orchestrator = orchestrator;
         this.researchReportRepository = researchReportRepository;
         this.evidenceRepository = evidenceRepository;
         this.listingExtractor = listingExtractor;
+        this.jwtService = jwtService;
     }
 
     /**
      * Executes complete, end-to-end internship verification and risk analysis.
+     * Requires a valid Supabase JWT in the Authorization header.
      */
     @PostMapping
     public ResponseEntity<AnalysisReportResponse> analyzeInternship(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @Valid @RequestBody AnalysisRequest request) {
-        AnalysisReportResponse response = orchestrator.executeCompleteAnalysis(request);
+        String userId = jwtService.extractAndVerifyUserId(authHeader)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Valid Supabase authentication token required"));
+
+        AnalysisReportResponse response = orchestrator.executeCompleteAnalysis(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
      * Retrieves an existing analysis report and its collected evidence by report ID.
+     * Enforces user isolation: only the owner of the report can retrieve it.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<AnalysisReportResponse> getAnalysisById(@PathVariable Long id) {
-        ResearchReport report = researchReportRepository.findById(id)
+    public ResponseEntity<AnalysisReportResponse> getAnalysisById(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        String userId = jwtService.extractAndVerifyUserId(authHeader)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Valid Supabase authentication token required"));
+
+        ResearchReport report = researchReportRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Research report not found with id: " + id));
 
         List<Evidence> evidenceList = evidenceRepository.findByResearchReportId(id);
@@ -105,11 +122,16 @@ public class AnalysisController {
     }
 
     /**
-     * Retrieves all analysis reports ordered by creation date.
+     * Retrieves all analysis reports for the authenticated user, ordered by creation date.
+     * Enforces user isolation: reports with other user IDs or null user_id are never returned.
      */
     @GetMapping
-    public ResponseEntity<List<AnalysisReportResponse>> getAllReports() {
-        List<ResearchReport> reports = researchReportRepository.findAllByOrderByCreatedAtDesc();
+    public ResponseEntity<List<AnalysisReportResponse>> getAllReports(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String userId = jwtService.extractAndVerifyUserId(authHeader)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Valid Supabase authentication token required"));
+
+        List<ResearchReport> reports = researchReportRepository.findByUserIdOrderByCreatedAtDesc(userId);
         List<AnalysisReportResponse> responses = reports.stream()
                 .map(r -> new AnalysisReportResponse(
                         r.getId(),

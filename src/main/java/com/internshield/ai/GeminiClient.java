@@ -34,7 +34,7 @@ public class GeminiClient {
      */
     public GeminiClient() {
         this(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
                 System.getenv("GOOGLE_API_KEY"),
                 10,
                 60,
@@ -49,7 +49,7 @@ public class GeminiClient {
      */
     @Autowired
     public GeminiClient(
-            @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent}") String apiUrl,
+            @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent}") String apiUrl,
             @Value("${google.ai.api.key:}") String apiKey,
             @Value("${gemini.api.connect-timeout-seconds:10}") int connectTimeoutSeconds,
             @Value("${gemini.api.read-timeout-seconds:60}") int readTimeoutSeconds,
@@ -78,7 +78,7 @@ public class GeminiClient {
             ObjectMapper objectMapper) {
         this.apiUrl = (apiUrl != null && !apiUrl.isBlank())
                 ? apiUrl
-                : "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+                : "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent";
         this.apiKey = apiKey;
         this.connectTimeoutSeconds = connectTimeoutSeconds > 0 ? connectTimeoutSeconds : 10;
         this.readTimeoutSeconds = readTimeoutSeconds > 0 ? readTimeoutSeconds : 60;
@@ -110,20 +110,21 @@ public class GeminiClient {
                 .addObject()
                 .put("text",
                         "You are an expert internship verification research analyst for InternShield AI. " +
-                                "Analyze only the evidence supplied in the user's JSON payload. " +
+                                "Analyze both the internship listing details and the research evidence supplied in the user's JSON payload. " +
                                 "Follow these rules strictly: " +
-                                "1. Distinguish company-level information from internship-specific evidence. " +
-                                "2. Treat official company websites as stronger evidence of company identity, " +
+                                "1. Scrutinize the internship listing for scam indicators: upfront payments, paid certification/training requirements, guaranteed job/placement without technical evaluation, artificial urgency (e.g. limited seats), and informal payment channels like UPI/P2P apps. " +
+                                "2. Distinguish company-level information from internship-specific evidence. " +
+                                "3. Treat official company websites as stronger evidence of company identity, " +
                                 "but never assume that a specific job offer is genuine just because the company is legitimate. " +
-                                "3. Treat employee reviews as general workplace feedback, " +
+                                "4. Treat employee reviews as general workplace feedback, " +
                                 "not proof of internship fraud. " +
-                                "4. Identify recruitment impersonation warnings separately from confirmed fraud. " +
-                                "5. Never treat missing information as proof of fraud. " +
-                                "6. Never invent facts, sources, URLs, or allegations. " +
-                                "7. Clearly distinguish verified facts from unverified third-party claims. " +
-                                "8. Highlight whether evidence is relevant to the specific internship role. " +
-                                "9. Explain limitations when evidence is insufficient or unrelated. " +
-                                "10. Never make the final fraud verdict or risk score. The backend deterministic rule engine decides that. " +
+                                "5. Identify recruitment impersonation warnings separately from confirmed fraud. " +
+                                "6. Never treat missing information as proof of fraud. " +
+                                "7. Never invent facts, sources, URLs, or allegations. " +
+                                "8. Clearly distinguish verified facts from unverified third-party claims. " +
+                                "9. Highlight whether evidence is relevant to the specific internship role. " +
+                                "10. Explain limitations when evidence is insufficient or unrelated. " +
+                                "11. Highlight specific positive signals (official registry, official career domain) and risk signals (fee demand, UPI payment, guaranteed placement). " +
                                 "Return valid JSON with these exact fields: " +
                                 "company_name (string), summary (string), positive_signals (array of strings), " +
                                 "risk_signals (array of strings), evidence_limitations (array of strings), " +
@@ -135,7 +136,7 @@ public class GeminiClient {
         userContent.put("role", "user");
         userContent.putArray("parts")
                 .addObject()
-                .put("text", "Analyze this internship research evidence:\n" + evidenceJson);
+                .put("text", "Analyze this internship listing and research evidence:\n" + evidenceJson);
 
         // Request JSON response
         requestBody.putObject("generationConfig")

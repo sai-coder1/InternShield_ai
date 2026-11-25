@@ -13,4 +13,8 @@ public interface ResearchReportRepository extends JpaRepository<ResearchReport, 
     List<ResearchReport> findByStatus(ResearchStatus status);
 
     List<ResearchReport> findAllByOrderByCreatedAtDesc();
+
+    List<ResearchReport> findByUserIdOrderByCreatedAtDesc(String userId);
+
+    java.util.Optional<ResearchReport> findByIdAndUserId(Long id, String userId);
 }

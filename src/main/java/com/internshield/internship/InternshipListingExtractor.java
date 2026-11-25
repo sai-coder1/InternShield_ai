@@ -36,7 +36,7 @@ public class InternshipListingExtractor {
             "(?:\\+?\\d{1,3}[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}|(?:\\+91[-.\\s]?)?[6-9]\\d{9}");
 
     private static final Pattern PAYMENT_FEE_PATTERN = Pattern.compile(
-            "(?i)\\b(registration fee|registration charges|training fee|training charges|processing fee|onboarding fee|security deposit|security fee|certificate fee|equipment fee|laptop charge|admission fee|pay\\s+(?:rs|inr|usd|\\$|amount|fee)|deposit of rs|pay to confirm)\\b");
+            "(?i)\\b(registration fee|registration charges|training fee|training charges|processing fee|onboarding fee|security deposit|security fee|certificate fee|certification fee|certification charges|certification program|paid certification|equipment fee|laptop charge|admission fee|upfront payment|upfront fee|pay upfront|pay to start|advance fee|advance payment|pay\\s+(?:rs|inr|usd|\\$|amount|fee)|deposit of rs|pay to confirm|payment[:\\s]+(?:via\\s+|through\\s+)?upi|payment[:\\s]*upi|upi id)\\b");
 
     private static final Pattern STIPEND_PATTERN = Pattern.compile(
             "(?i)\\b(?:stipend|salary|remuneration|pay|compensation)[:\\s]*([₹$€£]?\\s*\\d{1,3}(?:,\\d{3})*(?:\\s*-\\s*[₹$€£]?\\s*\\d{1,3}(?:,\\d{3})*)?(?:\\s*(?:k|thousand|lakh|per month|/month|p\\.m\\.))?)\\b");

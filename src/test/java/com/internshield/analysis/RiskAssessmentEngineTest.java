@@ -235,8 +235,8 @@ class RiskAssessmentEngineTest {
 
         RiskAssessmentResult result = engine.evaluateRisk("Infosys", cleanListing, allEvidence);
 
-        // Baseline 10 - 15 (Registry) - 15 (Official Source) - 5 (Job Board) = -25 -> Clamped to 10
-        assertEquals(10, result.riskScore());
+        // Baseline 10 - 15 (Registry) - 15 (Official Source) - 5 (Job Board) = -25 -> Clamped to 0 (genuine corporate credentials verified)
+        assertEquals(0, result.riskScore());
         assertEquals("LOW", result.riskLevel());
         assertEquals(RiskRecommendation.PROCEED_WITH_NORMAL_PRECAUTIONS, result.recommendation());
         assertEquals(3, result.positiveSignals().size());
@@ -291,9 +291,9 @@ class RiskAssessmentEngineTest {
         List<Evidence> evidence = createCleanEvidence("StartUpCo");
         RiskAssessmentResult result = engine.evaluateRisk("StartUpCo", minimalListing, evidence);
 
-        // Missing fields must not trigger any rules
+        // Missing fields must not trigger any rules; corporate records reduce score to 0
         assertTrue(result.triggeredRules().isEmpty());
-        assertEquals(10, result.riskScore());
+        assertEquals(0, result.riskScore());
         assertEquals(RiskRecommendation.PROCEED_WITH_NORMAL_PRECAUTIONS, result.recommendation());
     }
 
@@ -320,5 +320,259 @@ class RiskAssessmentEngineTest {
         assertTrue(result.triggeredRules().isEmpty());
         assertEquals(10, result.riskScore());
         assertEquals(RiskRecommendation.PROCEED_WITH_NORMAL_PRECAUTIONS, result.recommendation());
+    }
+
+    // ==========================================
+    // 5. RULE 12, AI INTEGRATION & USER SCAM CASES
+    // ==========================================
+
+    @Test
+    @DisplayName("Rule 12: Informal / UPI payment method demanded (+35, HIGH)")
+    void testRule12_unofficialPaymentUpi() {
+        ExtractedInternshipDetails listing = new ExtractedInternshipDetails(
+                "Intern", "FintechScam", "Pay registration deposit via Payment: UPI to hr@upi.",
+                "Intern", "₹10,000", List.of(), "", "", "STANDARD_WEB", List.of(), false, false, null);
+
+        RiskAssessmentResult result = engine.evaluateRisk("FintechScam", listing, List.of());
+
+        assertTrue(result.triggeredRules().stream().anyMatch(r -> "RULE_12_UNOFFICIAL_PAYMENT".equals(r.ruleId())));
+        assertEquals(45, result.riskScore()); // 10 baseline + 35
+    }
+
+    @Test
+    @DisplayName("Gemini AI qualitative risk signals contribute to backend score deterministically")
+    void testRuleAI_geminiQualitativeRiskSignals() {
+        ExtractedInternshipDetails cleanListing = createCleanListing("SuspiciousCo");
+        com.internshield.ai.AIAnalysisResult aiResult = new com.internshield.ai.AIAnalysisResult(
+                "SuspiciousCo",
+                "Multiple inconsistencies found.",
+                List.of(),
+                List.of("Company claims to be registered but has no corporate registrar records", "Recruiter phone number associated with previous scam reports"),
+                List.of(),
+                List.of(),
+                "Disclaimer",
+                false,
+                "{}"
+        );
+
+        RiskAssessmentResult result = engine.evaluateRisk("SuspiciousCo", cleanListing, List.of(), aiResult);
+
+        assertTrue(result.triggeredRules().stream().anyMatch(r -> r.ruleId().startsWith("AI_RULE_")));
+        assertEquals(35, result.riskScore()); // 10 baseline + 25 (scam history rule)
+    }
+
+    @Test
+    @DisplayName("Case A: Normal Internship - No fee, official application, interview, realistic stipend")
+    void testCaseA_normalInternship() {
+        ExtractedInternshipDetails listing = new ExtractedInternshipDetails(
+                "Software Engineer Intern",
+                "Infosys",
+                "Software engineering internship. Apply via our official careers portal. Candidates must clear 2 technical interview rounds and coding test. Stipend: Rs 25,000 per month. Official position with zero fees.",
+                "Software Engineer Intern",
+                "₹25,000/month",
+                List.of("Develop REST APIs", "Write automated tests"),
+                "recruiter@infosys.com",
+                "+91-80-28520261",
+                "STANDARD_WEB",
+                List.of(),
+                false,
+                false,
+                null
+        );
+
+        List<Evidence> evidence = createCleanEvidence("Infosys");
+
+        com.internshield.ai.AIAnalysisResult aiResult = new com.internshield.ai.AIAnalysisResult(
+                "Infosys",
+                "Legitimate corporate internship listing from verified enterprise employer.",
+                List.of("Official corporate website and careers portal verified", "Standard technical interview evaluation process", "No application or onboarding fee requested"),
+                List.of(),
+                List.of("Review platform feedback general in nature"),
+                List.of("https://infosys.com/careers"),
+                "Disclaimer",
+                false,
+                "{}"
+        );
+
+        RiskAssessmentResult result = engine.evaluateRisk("Infosys Ltd", listing, evidence, aiResult);
+
+        assertTrue(result.triggeredRules().isEmpty(), "Normal internship should trigger 0 risk rules");
+        assertEquals(0, result.riskScore(), "Normal verified internship should score 0% risk (not defaulted to 10)");
+        assertEquals("LOW", result.riskLevel());
+        assertEquals(RiskRecommendation.PROCEED_WITH_NORMAL_PRECAUTIONS, result.recommendation());
+        assertFalse(result.positiveSignals().isEmpty());
+    }
+
+    @Test
+    @DisplayName("Case B: CareerBoost - ₹2,999 certification fee + guaranteed job + UPI + limited seats")
+    void testCaseB_careerBoost() {
+        String description = """
+                Company: CareerBoost Pvt Ltd
+                Role: Full Stack Developer Intern
+                Stipend: ₹20,000/month
+                Special Offer: Complete our ₹2,999 certification program and you are 100% guaranteed a job after the internship.
+                Payment: UPI
+                Limited seats: 7 remaining.
+                """;
+
+        com.internshield.internship.InternshipListingExtractor extractor =
+                new com.internshield.internship.InternshipListingExtractor(new com.internshield.internship.SsrfProtectionValidator());
+        ExtractedInternshipDetails extracted = extractor.extract(null, description, "CareerBoost Pvt Ltd");
+
+        com.internshield.ai.AIAnalysisResult aiResult = new com.internshield.ai.AIAnalysisResult(
+                "CareerBoost Pvt Ltd",
+                "Critical scam risk detected: upfront fee demanded for mandatory certification, guaranteed job placement claim, informal UPI payment channel, and artificial urgency pressure.",
+                List.of(),
+                List.of(
+                        "Paid certification fee of ₹2,999 demanded to secure internship",
+                        "Guaranteed job offered without evaluation",
+                        "Payment demanded via UPI informal channel",
+                        "Artificial urgency with limited seats remaining"
+                ),
+                List.of("Entity has no registered MCA corporate filings"),
+                List.of(),
+                "Disclaimer",
+                false,
+                "{}"
+        );
+
+        RiskAssessmentResult result = engine.evaluateRisk("CareerBoost Pvt Ltd", extracted, List.of(), aiResult);
+
+        // Verify all 4 expected scam indicators are detected by the engine
+        boolean detectedFeeOrCert = result.triggeredRules().stream()
+                .anyMatch(r -> r.ruleId().contains("TRAINING") || r.ruleId().contains("CERT") || r.ruleId().contains("FEE"));
+        boolean detectedGuaranteed = result.triggeredRules().stream()
+                .anyMatch(r -> r.ruleId().contains("GUARANTEED"));
+        boolean detectedUpi = result.triggeredRules().stream()
+                .anyMatch(r -> r.ruleId().contains("PAYMENT") || r.ruleId().contains("UNOFFICIAL"));
+        boolean detectedUrgency = result.triggeredRules().stream()
+                .anyMatch(r -> r.ruleId().contains("URGENCY"));
+
+        assertTrue(detectedFeeOrCert, "Must flag paid training/certification fee");
+        assertTrue(detectedGuaranteed, "Must flag guaranteed job claim");
+        assertTrue(detectedUpi, "Must flag UPI payment method");
+        assertTrue(detectedUrgency, "Must flag urgency/limited seats");
+
+        assertTrue(result.riskScore() >= 80, "CareerBoost score must be critical scam risk, got: " + result.riskScore());
+        assertEquals("CRITICAL", result.riskLevel());
+        assertEquals(RiskRecommendation.DO_NOT_PROCEED_UNTIL_VERIFIED, result.recommendation());
+    }
+
+    @Test
+    @DisplayName("Case C: Suspicious internship with non-regex wording caught via Gemini AI mapping")
+    void testCaseC_suspiciousInternshipDifferentWording() {
+        // Phrasing intentionally crafted so traditional exact regex patterns (e.g. 'registration fee', 'pay for training', 'whatsapp', 't.me') do NOT match
+        String nonRegexDescription = """
+                Company: NexaSkills Innovations
+                Role: Cloud Trainee Associate
+                Description: Candidates must remit an initial candidate onboarding kit charge of Rs 1,500 prior to joining.
+                All selected applicants are assured an appointment with zero skill screening or testing.
+                Submit payment to personal phone wallet before enrollment ends tomorrow morning.
+                """;
+
+        ExtractedInternshipDetails listing = new ExtractedInternshipDetails(
+                "Cloud Trainee Associate",
+                "NexaSkills Innovations",
+                nonRegexDescription,
+                "Cloud Trainee Associate",
+                "",
+                List.of(),
+                "support@nexaskills.org",
+                "",
+                "STANDARD_WEB",
+                List.of(),
+                false,
+                false,
+                null
+        );
+
+        // Gemini AI understands natural language semantics and produces recognized structured risk signals
+        com.internshield.ai.AIAnalysisResult aiResult = new com.internshield.ai.AIAnalysisResult(
+                "NexaSkills Innovations",
+                "Severe recruitment scam indicators: upfront onboarding kit charge, assured appointment without screening, and phone wallet payment.",
+                List.of(),
+                List.of(
+                        "Upfront candidate onboarding kit charge of Rs 1,500 required before start",
+                        "Direct appointment promised with zero screening or technical evaluation",
+                        "Informal payment requested via personal phone wallet",
+                        "Urgency pressure with immediate enrollment deadline"
+                ),
+                List.of("No MCA corporate registration found"),
+                List.of(),
+                "Disclaimer",
+                false,
+                "{}"
+        );
+
+        RiskAssessmentResult result = engine.evaluateRisk("NexaSkills Innovations", listing, List.of(), aiResult);
+
+        // Verify that Gemini signals reached the engine and were deterministically converted into rule violations
+        assertTrue(result.triggeredRules().stream().anyMatch(r -> "AI_RULE_UPFRONT_FEE".equals(r.ruleId())),
+                "AI upfront fee rule must trigger");
+        assertTrue(result.triggeredRules().stream().anyMatch(r -> "AI_RULE_GUARANTEED_JOB".equals(r.ruleId())),
+                "AI guaranteed job rule must trigger");
+        assertTrue(result.triggeredRules().stream().anyMatch(r -> "AI_RULE_SUSPICIOUS_PAYMENT".equals(r.ruleId())),
+                "AI suspicious payment rule must trigger");
+        assertTrue(result.triggeredRules().stream().anyMatch(r -> "AI_RULE_URGENCY".equals(r.ruleId())),
+                "AI urgency rule must trigger");
+
+        assertTrue(result.riskScore() >= 80, "Case C score must be >= 80, got: " + result.riskScore());
+        assertEquals("CRITICAL", result.riskLevel());
+        assertEquals(RiskRecommendation.DO_NOT_PROCEED_UNTIL_VERIFIED, result.recommendation());
+        assertTrue(result.scoringBreakdown().contains("Triggered AI Signal"));
+    }
+
+    @Test
+    @DisplayName("Gemini and Regex deduplication: double counting prevented for identical scam signal")
+    void testDeduplication_regexAndGeminiDoNotDoubleCount() {
+        // Regex triggers RULE_01_REG_FEE (+45)
+        ExtractedInternshipDetails listing = new ExtractedInternshipDetails(
+                "Intern", "ScamCo", "Pay registration fee of Rs 2000.",
+                "Intern", "₹10,000", List.of(), "", "", "STANDARD_WEB", List.of(), true, false, null);
+
+        // Gemini ALSO reports the registration fee
+        com.internshield.ai.AIAnalysisResult aiResult = new com.internshield.ai.AIAnalysisResult(
+                "ScamCo",
+                "Upfront registration fee detected.",
+                List.of(),
+                List.of("Upfront registration fee demanded"),
+                List.of(),
+                List.of(),
+                "Disclaimer",
+                false,
+                "{}"
+        );
+
+        RiskAssessmentResult result = engine.evaluateRisk("ScamCo", listing, List.of(), aiResult);
+
+        // Score should be 10 baseline + 45 (from regex) = 55, NOT 10 + 45 + 45 = 100!
+        assertEquals(55, result.riskScore(), "Fee should be counted exactly once without double counting");
+        assertTrue(result.scoringBreakdown().contains("already counted"));
+    }
+
+    @Test
+    @DisplayName("Arbitrary unrecognized Gemini text adds 0 points to risk score")
+    void testArbitraryAiTextDoesNotAddPoints() {
+        ExtractedInternshipDetails cleanListing = createCleanListing("NormalCo");
+
+        // Gemini returns non-scam arbitrary commentary
+        com.internshield.ai.AIAnalysisResult aiResult = new com.internshield.ai.AIAnalysisResult(
+                "NormalCo",
+                "Office building has only 2 floors and founded recently.",
+                List.of(),
+                List.of("Office is located in a quiet suburban business park", "Company website was redesigned recently"),
+                List.of(),
+                List.of(),
+                "Disclaimer",
+                false,
+                "{}"
+        );
+
+        RiskAssessmentResult result = engine.evaluateRisk("NormalCo", cleanListing, List.of(), aiResult);
+
+        // Zero rules should trigger for arbitrary text
+        assertTrue(result.triggeredRules().isEmpty(), "Arbitrary text must not trigger scam rules");
+        assertEquals(10, result.riskScore(), "Arbitrary text must add 0 points");
+        assertTrue(result.scoringBreakdown().contains("Unrecognized AI signal omitted"));
     }
 }

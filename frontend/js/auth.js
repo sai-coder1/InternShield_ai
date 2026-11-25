@@ -1,9 +1,7 @@
 /**
  * InternShield AI - Authentication & Form Validation Controller
- * Handles client-side validation, password visibility toggles,
- * inline error display, and simulation banners for Login and Registration.
- *
- * NOTE: Real backend authentication is not yet connected.
+ * Powered by Supabase Authentication (v2 SDK).
+ * Handles sign up, sign in, sign out, password toggles, and dynamic auth state.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -12,9 +10,11 @@ document.addEventListener("DOMContentLoaded", () => {
   initRegisterForm();
   initForgotPassword();
   initSampleCredentials();
+  initSignOutButtons();
+  initAuthStateListener();
 });
 
-// Standard email format validation regex (accepts any valid domain: Gmail, Outlook, Yahoo, college, etc.)
+// Standard email format validation regex
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
 
 /**
@@ -77,7 +77,17 @@ function clearError(inputEl, errorEl) {
 }
 
 /**
- * Login Form Validation & Simulation
+ * Helper to render notice banner messages (error / success / info)
+ */
+function showBanner(bannerEl, type, messageHtml) {
+  if (!bannerEl) return;
+  bannerEl.className = `auth-notice-banner ${type} visible`;
+  bannerEl.innerHTML = messageHtml;
+  bannerEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/**
+ * Login Form Controller - Powered by Supabase signInWithPassword()
  */
 function initLoginForm() {
   const form = document.getElementById("loginForm");
@@ -87,9 +97,9 @@ function initLoginForm() {
   const emailError = document.getElementById("loginEmailError");
   const passwordInput = document.getElementById("loginPassword");
   const passwordError = document.getElementById("loginPasswordError");
+  const submitBtn = document.getElementById("loginSubmitBtn");
   const noticeBanner = document.getElementById("loginNoticeBanner");
 
-  // Real-time error clearing when user types
   if (emailInput) {
     emailInput.addEventListener("input", () => clearError(emailInput, emailError));
   }
@@ -97,29 +107,26 @@ function initLoginForm() {
     passwordInput.addEventListener("input", () => clearError(passwordInput, passwordError));
   }
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     let isValid = true;
 
-    // Reset old banner
     if (noticeBanner) {
-      noticeBanner.classList.remove("visible", "success", "info");
+      noticeBanner.classList.remove("visible", "success", "error", "info");
       noticeBanner.innerHTML = "";
     }
 
-    // 1. Email validation
     const emailVal = emailInput ? emailInput.value.trim() : "";
     if (!emailVal) {
       showError(emailInput, emailError, "Email address is required.");
       isValid = false;
     } else if (!EMAIL_REGEX.test(emailVal)) {
-      showError(emailInput, emailError, "Please enter a valid email address (e.g., name@gmail.com or college email).");
+      showError(emailInput, emailError, "Please enter a valid email address.");
       isValid = false;
     } else {
       clearError(emailInput, emailError);
     }
 
-    // 2. Password validation
     const passwordVal = passwordInput ? passwordInput.value : "";
     if (!passwordVal) {
       showError(passwordInput, passwordError, "Password is required.");
@@ -130,25 +137,49 @@ function initLoginForm() {
 
     if (!isValid) return;
 
-    // Display simulated confirmation banner (does not claim real registration/login)
-    if (noticeBanner) {
-      noticeBanner.className = "auth-notice-banner info visible";
-      noticeBanner.innerHTML = `
-        <strong>ℹ️ Format Verified – Demo Mode</strong>
-        <p style="margin-top: 6px; margin-bottom: 12px;">
-          Email and password format verified. <strong>Backend user authentication API is not connected</strong> (the Spring Boot backend currently powers company verification, research evidence, and AI risk analysis).
-        </p>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <a href="index.html" class="btn btn-primary btn-sm">Go to AI Offer Scanner →</a>
-        </div>
-      `;
-      noticeBanner.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // Check Supabase initialization
+    if (!window.supabaseClient) {
+      showBanner(noticeBanner, "error", "Authentication service is temporarily unavailable. Please try again later.");
+      return;
+    }
+
+    // Set loading state
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Signing In...";
+    }
+
+    try {
+      const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+        email: emailVal,
+        password: passwordVal
+      });
+
+      if (error) {
+        showBanner(noticeBanner, "error", `<strong>Sign In Failed:</strong> ${error.message}`);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Sign In";
+        }
+      } else {
+        const userName = data.user?.user_metadata?.full_name || data.user?.email || "Student";
+        showBanner(noticeBanner, "success", `<strong>Welcome back, ${userName}!</strong> Signing in...`);
+        setTimeout(() => {
+          window.location.href = "index.html";
+        }, 800);
+      }
+    } catch (err) {
+      showBanner(noticeBanner, "error", `<strong>Error:</strong> ${err.message || "An unexpected error occurred."}`);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign In";
+      }
     }
   });
 }
 
 /**
- * Registration Form Validation & Simulation
+ * Registration Form Controller - Powered by Supabase signUp()
  */
 function initRegisterForm() {
   const form = document.getElementById("registerForm");
@@ -164,26 +195,24 @@ function initRegisterForm() {
   const confirmPasswordError = document.getElementById("regConfirmPasswordError");
   const termsCheckbox = document.getElementById("regTerms");
   const termsError = document.getElementById("regTermsError");
+  const submitBtn = document.getElementById("registerSubmitBtn");
   const noticeBanner = document.getElementById("registerNoticeBanner");
 
-  // Real-time clearing
   if (nameInput) nameInput.addEventListener("input", () => clearError(nameInput, nameError));
   if (emailInput) emailInput.addEventListener("input", () => clearError(emailInput, emailError));
   if (passwordInput) passwordInput.addEventListener("input", () => clearError(passwordInput, passwordError));
   if (confirmPasswordInput) confirmPasswordInput.addEventListener("input", () => clearError(confirmPasswordInput, confirmPasswordError));
   if (termsCheckbox) termsCheckbox.addEventListener("change", () => clearError(null, termsError));
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     let isValid = true;
 
-    // Reset old banner
     if (noticeBanner) {
-      noticeBanner.classList.remove("visible", "success", "info");
+      noticeBanner.classList.remove("visible", "success", "error", "info");
       noticeBanner.innerHTML = "";
     }
 
-    // 1. Full name validation
     const nameVal = nameInput ? nameInput.value.trim() : "";
     if (!nameVal) {
       showError(nameInput, nameError, "Full name is required.");
@@ -195,19 +224,17 @@ function initRegisterForm() {
       clearError(nameInput, nameError);
     }
 
-    // 2. Email validation
     const emailVal = emailInput ? emailInput.value.trim() : "";
     if (!emailVal) {
       showError(emailInput, emailError, "Email address is required.");
       isValid = false;
     } else if (!EMAIL_REGEX.test(emailVal)) {
-      showError(emailInput, emailError, "Please enter a valid email address (e.g., name@gmail.com or college email).");
+      showError(emailInput, emailError, "Please enter a valid email address.");
       isValid = false;
     } else {
       clearError(emailInput, emailError);
     }
 
-    // 3. Password length validation
     const passwordVal = passwordInput ? passwordInput.value : "";
     if (!passwordVal) {
       showError(passwordInput, passwordError, "Password is required.");
@@ -219,7 +246,6 @@ function initRegisterForm() {
       clearError(passwordInput, passwordError);
     }
 
-    // 4. Confirm password validation
     const confirmVal = confirmPasswordInput ? confirmPasswordInput.value : "";
     if (!confirmVal) {
       showError(confirmPasswordInput, confirmPasswordError, "Please confirm your password.");
@@ -231,7 +257,6 @@ function initRegisterForm() {
       clearError(confirmPasswordInput, confirmPasswordError);
     }
 
-    // 5. Terms and Conditions validation
     if (termsCheckbox && !termsCheckbox.checked) {
       showError(null, termsError, "You must agree to the Terms of Service and Privacy Policy.");
       isValid = false;
@@ -241,48 +266,113 @@ function initRegisterForm() {
 
     if (!isValid) return;
 
-    // Display simulated confirmation banner
-    if (noticeBanner) {
-      noticeBanner.className = "auth-notice-banner info visible";
-      noticeBanner.innerHTML = `
-        <strong>ℹ️ Client Validation Passed – Demo Mode</strong>
-        <p style="margin-top: 6px; margin-bottom: 12px;">
-          All registration fields passed client-side validation. <strong>Backend user account authentication is not connected</strong> — no real account has been created and no credentials have been stored. You can proceed to test the live offer scanner.
-        </p>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <a href="index.html" class="btn btn-primary btn-sm">Go to AI Offer Scanner →</a>
-          <a href="login.html" class="btn btn-secondary btn-sm">Go to Login Demo</a>
-        </div>
-      `;
-      noticeBanner.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (!window.supabaseClient) {
+      showBanner(noticeBanner, "error", "Authentication service is temporarily unavailable. Please try again later.");
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating Account...";
+    }
+
+    try {
+      // Connect to Supabase signUp with user's full name in options.data
+      const { data, error } = await window.supabaseClient.auth.signUp({
+        email: emailVal,
+        password: passwordVal,
+        options: {
+          data: {
+            full_name: nameVal
+          }
+        }
+      });
+
+      if (error) {
+        showBanner(noticeBanner, "error", `<strong>Registration Failed:</strong> ${error.message}`);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Create Account";
+        }
+      } else {
+        const user = data.user;
+        // Case: Duplicate account where email confirmation is on
+        if (user && user.identities && user.identities.length === 0) {
+          showBanner(noticeBanner, "error", "An account with this email address already exists. <a href='login.html' style='color:var(--blue);font-weight:700;'>Sign In instead</a>.");
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Create Account";
+          }
+        } else if (data.session) {
+          // Auto-confirmed / instant session
+          showBanner(noticeBanner, "success", `<strong>Account Created!</strong> Welcome, ${nameVal}! Redirecting to homepage...`);
+          setTimeout(() => {
+            window.location.href = "index.html";
+          }, 1000);
+        } else {
+          // Email confirmation link sent
+          showBanner(noticeBanner, "success", `
+            <strong>Account Registered!</strong>
+            <p style="margin-top: 6px; margin-bottom: 0;">
+              A confirmation email has been sent to <strong>${emailVal}</strong>. Please check your inbox to activate your account.
+            </p>
+          `);
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Create Account";
+          }
+        }
+      }
+    } catch (err) {
+      showBanner(noticeBanner, "error", `<strong>Error:</strong> ${err.message || "An unexpected error occurred."}`);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create Account";
+      }
     }
   });
 }
 
 /**
- * Forgot Password Notice Handler
+ * Forgot Password Notice / Handler
  */
 function initForgotPassword() {
   const forgotLink = document.getElementById("forgotPasswordLink");
+  const emailInput = document.getElementById("loginEmail");
   const noticeBanner = document.getElementById("loginNoticeBanner");
 
   if (forgotLink && noticeBanner) {
-    forgotLink.addEventListener("click", (e) => {
+    forgotLink.addEventListener("click", async (e) => {
       e.preventDefault();
-      noticeBanner.className = "auth-notice-banner info visible";
-      noticeBanner.innerHTML = `
-        <strong>ℹ️ Password Recovery Notice</strong>
-        <p style="margin-top: 6px; margin-bottom: 0;">
-          The automated password recovery service is not yet implemented. Account recovery will be enabled once backend mail routing services are connected.
-        </p>
-      `;
-      noticeBanner.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const emailVal = emailInput ? emailInput.value.trim() : "";
+
+      if (!emailVal || !EMAIL_REGEX.test(emailVal)) {
+        showBanner(noticeBanner, "info", "Please type your email address into the Email field above, then click 'Forgot password?' to receive a reset link.");
+        if (emailInput) emailInput.focus();
+        return;
+      }
+
+      if (!window.supabaseClient) {
+        showBanner(noticeBanner, "error", "Authentication service is unavailable.");
+        return;
+      }
+
+      try {
+        const { error } = await window.supabaseClient.auth.resetPasswordForEmail(emailVal);
+        if (error) {
+          showBanner(noticeBanner, "error", `Could not send reset email: ${error.message}`);
+        } else {
+          showBanner(noticeBanner, "success", `Password reset email sent to <strong>${emailVal}</strong>. Please check your inbox.`);
+        }
+      } catch (err) {
+        showBanner(noticeBanner, "error", err.message || "Failed to request password reset.");
+      }
     });
   }
 }
 
 /**
- * Sample Credentials Autofill for Demonstration
+ * Sample Credentials Autofill for Demonstration / Testing
  */
 function initSampleCredentials() {
   const autofillBtn = document.getElementById("fillSampleCredsBtn");
@@ -297,6 +387,87 @@ function initSampleCredentials() {
       passwordInput.value = "DemoPass2026!";
       clearError(emailInput, emailError);
       clearError(passwordInput, passwordError);
+    });
+  }
+}
+
+/**
+ * Connects all Sign Out buttons to supabase.auth.signOut()
+ */
+function initSignOutButtons() {
+  const signoutButtons = document.querySelectorAll(".auth-signout-btn");
+  signoutButtons.forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (!window.supabaseClient) return;
+
+      try {
+        await window.supabaseClient.auth.signOut();
+        // Reload or redirect to refresh auth state
+        window.location.reload();
+      } catch (err) {
+        console.error("Sign out error:", err);
+      }
+    });
+  });
+}
+
+/**
+ * Supabase Auth State Change Listener
+ * Keeps navigation bars synchronized across index.html, login.html, and register.html
+ */
+function initAuthStateListener() {
+  if (!window.supabaseClient) return;
+
+  // 1. Initial session check on page load
+  window.supabaseClient.auth.getSession().then(({ data: { session } }) => {
+    updateNavAuthUI(session ? session.user : null);
+  }).catch(err => {
+    console.warn("Could not retrieve initial session:", err);
+  });
+
+  // 2. Real-time auth state subscription
+  window.supabaseClient.auth.onAuthStateChange((event, session) => {
+    updateNavAuthUI(session ? session.user : null);
+  });
+}
+
+/**
+ * Helper to toggle Guest vs Authenticated UI elements in headers and navigation
+ */
+function updateNavAuthUI(user) {
+  const guestElements = document.querySelectorAll(".nav-auth-guest");
+  const userElements = document.querySelectorAll(".nav-auth-user");
+  const userNameDisplays = document.querySelectorAll(".user-name-display");
+
+  if (user) {
+    // Determine friendly display name
+    const fullName = user.user_metadata?.full_name 
+      || user.user_metadata?.name 
+      || (user.email ? user.email.split("@")[0] : "User");
+
+    userNameDisplays.forEach(el => {
+      el.textContent = fullName;
+    });
+
+    guestElements.forEach(el => {
+      el.style.display = "none";
+    });
+
+    userElements.forEach(el => {
+      if (el.parentElement && el.parentElement.classList.contains("nav-actions")) {
+        el.style.display = "inline-flex";
+      } else {
+        el.style.display = "";
+      }
+    });
+  } else {
+    guestElements.forEach(el => {
+      el.style.display = "";
+    });
+
+    userElements.forEach(el => {
+      el.style.display = "none";
     });
   }
 }
