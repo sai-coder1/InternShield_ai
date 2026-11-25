@@ -9,10 +9,14 @@ services:
     envVars:
       - key: PORT
         value: 8080
+      - key: DATABASE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_URL
+        sync: false
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        value: 3306
+        sync: false
       - key: DB_NAME
         sync: false
       - key: DB_USERNAME
@@ -20,7 +24,7 @@ services:
       - key: DB_PASSWORD
         sync: false
       - key: DB_SSL_MODE
-        value: REQUIRED
+        sync: false
       - key: GOOGLE_API_KEY
         sync: false
       - key: OCTEN_API_KEY
