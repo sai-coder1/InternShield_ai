@@ -1,15 +1,64 @@
 /**
  * InternShield AI - Main UI Controller
- * Connected to Spring Boot Backend API (http://localhost:8080)
+ * Connected to Spring Boot Backend API (configurable via window.INTERNSHIELD_API_BASE_URL)
  *
  * Handles live offer verification, Octen research orchestration,
  * Gemini AI credibility analysis, circular risk gauge animations,
  * company verification, and persistent session history from the database.
  */
 
+/**
+ * Checks whether the current page is running in a local development environment.
+ */
+function isLocalDevelopment() {
+  const host = window.location.hostname;
+  return Boolean(
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    host === "" ||
+    window.location.protocol === "file:"
+  );
+}
+
+/**
+ * Resolves the backend API base URL.
+ * Priority:
+ * 1. window.INTERNSHIELD_API_BASE_URL (configured via js/config.js, Vercel build, or window).
+ * 2. <meta name="internshield-api-base-url" content="...">
+ * 3. Localhost / local development -> "http://localhost:8080".
+ * 4. Production -> returns "" (relative) and NEVER falls back to localhost.
+ */
+function resolveApiBaseUrl() {
+  const configured = typeof window.INTERNSHIELD_API_BASE_URL === "string"
+    ? window.INTERNSHIELD_API_BASE_URL.trim()
+    : "";
+
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  const metaTag = document.querySelector('meta[name="internshield-api-base-url"]');
+  if (metaTag && metaTag.content && metaTag.content.trim() !== "") {
+    return metaTag.content.trim().replace(/\/+$/, "");
+  }
+
+  if (isLocalDevelopment()) {
+    return "http://localhost:8080";
+  }
+
+  // Production: Do not fall back to localhost!
+  return "";
+}
+
+// Expose on window for diagnostics and tests
+window.resolveInternShieldApiUrl = resolveApiBaseUrl;
+window.isLocalDevelopment = isLocalDevelopment;
+
 document.addEventListener("DOMContentLoaded", () => {
-  // Backend API Base URL (configurable via window.INTERNSHIELD_API_BASE_URL)
-  const API_BASE_URL = window.INTERNSHIELD_API_BASE_URL || "http://localhost:8080";
+  // Backend API Base URL
+  const API_BASE_URL = resolveApiBaseUrl();
+  const isLocal = isLocalDevelopment();
 
   // Navigation elements
   const mobileToggle = document.getElementById("mobileToggle");
@@ -261,6 +310,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // In production without configured backend URL, inform the user clearly
+    if (!API_BASE_URL && !isLocal) {
+      resetAnalyzeBtn();
+      if (scannerEmptyState) scannerEmptyState.classList.remove("hidden");
+      showApiError(`
+        <strong>Backend URL Not Configured:</strong><br>
+        The production backend URL has not been configured.<br>
+        <span style="font-size:0.85rem; opacity:0.9;">Please set <code>INTERNSHIELD_API_BASE_URL</code> in your Vercel Project Settings (Environment Variables) to your deployed Render URL (e.g., <code>https://&lt;service&gt;.onrender.com</code>).</span>
+      `);
+      return;
+    }
+
     if (scannerEmptyState) scannerEmptyState.classList.add("hidden");
     analysisResult.classList.remove("visible");
     scanningIndicator.classList.add("active");
@@ -336,9 +397,15 @@ document.addEventListener("DOMContentLoaded", () => {
       resetAnalyzeBtn();
       if (scannerEmptyState) scannerEmptyState.classList.remove("hidden");
 
+      const connectionHint = API_BASE_URL
+        ? `Ensure the Spring Boot backend server is reachable at <code>${API_BASE_URL}</code> and CORS on Render allows requests from this domain.`
+        : (isLocal
+            ? `Ensure the Spring Boot backend server is running on <code>http://localhost:8080</code>.`
+            : `Ensure <code>INTERNSHIELD_API_BASE_URL</code> is set in Vercel environment variables.`);
+
       showApiError(`
         <strong>Live Analysis Error:</strong> ${err.message}<br>
-        <span style="font-size:0.85rem; opacity:0.9;">Ensure the Spring Boot backend server is running on <code>${API_BASE_URL}</code>.</span>
+        <span style="font-size:0.85rem; opacity:0.9;">${connectionHint}</span>
       `);
     }
   }
@@ -348,6 +415,11 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   async function loadRecentChecksFromBackend() {
     try {
+      if (!API_BASE_URL && !isLocal) {
+        // Backend not configured on production deployment; history unavailable
+        return;
+      }
+
       const authHeaders = await getAuthHeaders();
       if (!authHeaders["Authorization"]) {
         sessionChecks = [];

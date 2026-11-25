@@ -7,6 +7,9 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -15,13 +18,21 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        String[] origins = allowedOrigins.split(",");
-        for (int i = 0; i < origins.length; i++) {
-            origins[i] = origins[i].trim();
+        List<String> origins = new ArrayList<>();
+        if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
+            for (String origin : allowedOrigins.split(",")) {
+                String trimmed = origin.trim();
+                if (!trimmed.isEmpty()) {
+                    if (trimmed.endsWith("/")) {
+                        trimmed = trimmed.substring(0, trimmed.length() - 1);
+                    }
+                    origins.add(trimmed);
+                }
+            }
         }
 
         registry.addMapping("/api/**")
-                .allowedOrigins(origins)
+                .allowedOrigins(origins.toArray(new String[0]))
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
