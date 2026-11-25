@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: internshield-ai
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Dockerfile
+    healthCheckPath: /api/analysis
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: DB_NAME
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: OCTEN_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        value: https://voljvzvcoptqadeeymjj.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_720rHpnaBsofC0xpDNdAxw_DzOG3qCz
+      - key: CORS_ALLOWED_ORIGINS
+        value: "*"

@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: internshield-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: internshield
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build: .
+    container_name: internshield-app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: internshield
+      DB_USERNAME: root
+      DB_PASSWORD: rootpassword
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OCTEN_API_KEY: ${OCTEN_API_KEY:-}
+      SUPABASE_URL: ${SUPABASE_URL:-https://voljvzvcoptqadeeymjj.supabase.co}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-sb_publishable_720rHpnaBsofC0xpDNdAxw_DzOG3qCz}
+    depends_on:
+      - db
+
+volumes:
+  mysql_data:
