@@ -8,8 +8,11 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Backend API Base URL (configurable via window.INTERNSHIELD_API_BASE_URL)
-  const API_BASE_URL = window.INTERNSHIELD_API_BASE_URL || "http://localhost:8080";
+  // Backend API Base URL (auto-detects production host or localhost)
+  const API_BASE_URL = window.INTERNSHIELD_API_BASE_URL ||
+    (window.location.protocol.startsWith("http") && window.location.port !== "5500" && window.location.port !== "3000" && window.location.port !== "5173"
+      ? window.location.origin
+      : "http://localhost:8080");
 
   // Navigation elements
   const mobileToggle = document.getElementById("mobileToggle");

@@ -5,7 +5,7 @@ services:
     plan: free
     region: oregon
     dockerfilePath: Dockerfile
-    healthCheckPath: /api/analysis
+    healthCheckPath: /api/health
     envVars:
       - key: PORT
         value: 8080
@@ -19,6 +19,8 @@ services:
         sync: false
       - key: DB_PASSWORD
         sync: false
+      - key: DB_SSL_MODE
+        value: REQUIRED
       - key: GOOGLE_API_KEY
         sync: false
       - key: OCTEN_API_KEY
