@@ -102,9 +102,7 @@ Company Name + Internship URL
 
 | Home Page | Risk Assessment |
 |---|---|
-| ![Home Page](<img width="1891" height="860" alt="home" src="https://github.com/user-attachments/assets/e12e1062-6c1c-43e0-853a-d9abbf9dbc1e" />
-)| ![Risk Assessment](<img width="1789" height="764" alt="Screenshot 2026-11-25 120043" src="https://github.com/user-attachments/assets/8f94b8f1-3547-4be4-98fd-785fca06fc57" />
-) |
+| <img width="600" alt="InternShield Home Page" src="https://github.com/user-attachments/assets/e12e1062-6c1c-43e0-853a-d9abbf9dbc1e" /> | <img width="600" alt="InternShield Risk Assessment" src="https://github.com/user-attachments/assets/8f94b8f1-3547-4be4-98fd-785fca06fc57" /> |
 
 ## 🚀 Getting Started
 
