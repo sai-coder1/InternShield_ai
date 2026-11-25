@@ -217,6 +217,30 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
+   * Helper to get authenticated headers from Supabase session
+   */
+  async function getAuthHeaders() {
+    const headers = {
+      "Content-Type": "application/json"
+    };
+    try {
+      let token = null;
+      if (typeof window.getValidAccessToken === "function") {
+        token = await window.getValidAccessToken();
+      } else if (window.supabaseClient && window.supabaseClient.auth) {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        token = session?.access_token || null;
+      }
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+    } catch (err) {
+      console.warn("Failed to retrieve Supabase auth session:", err);
+    }
+    return headers;
+  }
+
+  /**
    * Connect to real Spring Boot backend: POST /api/analysis
    */
   async function runLiveAnalysis(companyName, internshipUrl, pastedDescription, sourceLabel) {
@@ -225,6 +249,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const thisAnalysisId = ++currentAnalysisId;
 
     hideApiError();
+
+    // Check Supabase authentication before starting scan
+    const authHeaders = await getAuthHeaders();
+    if (!authHeaders["Authorization"]) {
+      resetAnalyzeBtn();
+      if (scannerEmptyState) scannerEmptyState.classList.remove("hidden");
+      showApiError(`
+        <strong>Authentication Required:</strong> Please <a href="login.html" style="color:var(--primary);text-decoration:underline;font-weight:600;">Sign In</a> or <a href="register.html" style="color:var(--primary);text-decoration:underline;font-weight:600;">Create an Account</a> to run an internship verification scan and save your history.
+      `);
+      return;
+    }
+
     if (scannerEmptyState) scannerEmptyState.classList.add("hidden");
     analysisResult.classList.remove("visible");
     scanningIndicator.classList.add("active");
@@ -235,11 +271,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analysis`, {
+      let response = await fetch(`${API_BASE_URL}/api/analysis`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           companyName: companyName,
           internshipUrl: internshipUrl ? internshipUrl.trim() : null,
@@ -247,7 +281,28 @@ document.addEventListener("DOMContentLoaded", () => {
         })
       });
 
+      // Proactively handle 401 by attempting session refresh and retry once
+      if (response.status === 401 && typeof window.refreshAuthSession === "function") {
+        console.warn("Received 401 Unauthorized; attempting Supabase session refresh...");
+        const refreshedToken = await window.refreshAuthSession();
+        if (refreshedToken) {
+          authHeaders["Authorization"] = `Bearer ${refreshedToken}`;
+          response = await fetch(`${API_BASE_URL}/api/analysis`, {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify({
+              companyName: companyName,
+              internshipUrl: internshipUrl ? internshipUrl.trim() : null,
+              pastedDescription: pastedDescription ? pastedDescription.trim() : null
+            })
+          });
+        }
+      }
+
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Your login session has expired or is invalid. Please <a href='login.html' style='color:var(--primary);text-decoration:underline;font-weight:600;'>Sign In</a> again.");
+        }
         let errorDetail = `Backend HTTP ${response.status} (${response.statusText})`;
         try {
           const errJson = await response.json();
@@ -289,11 +344,32 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Load real past checks from Spring Boot database: GET /api/analysis
+   * Load real past checks from Spring Boot database for the authenticated user: GET /api/analysis
    */
   async function loadRecentChecksFromBackend() {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/analysis`);
+      const authHeaders = await getAuthHeaders();
+      if (!authHeaders["Authorization"]) {
+        sessionChecks = [];
+        renderSessionHistory();
+        return;
+      }
+
+      let res = await fetch(`${API_BASE_URL}/api/analysis`, {
+        headers: authHeaders
+      });
+
+      // Proactively handle 401 in history load
+      if (res.status === 401 && typeof window.refreshAuthSession === "function") {
+        const refreshedToken = await window.refreshAuthSession();
+        if (refreshedToken) {
+          authHeaders["Authorization"] = `Bearer ${refreshedToken}`;
+          res = await fetch(`${API_BASE_URL}/api/analysis`, {
+            headers: authHeaders
+          });
+        }
+      }
+
       if (res.ok) {
         const reports = await res.json();
         if (Array.isArray(reports) && reports.length > 0) {
@@ -313,8 +389,13 @@ document.addEventListener("DOMContentLoaded", () => {
               data: uiData
             };
           });
-          renderSessionHistory();
+        } else {
+          sessionChecks = [];
         }
+        renderSessionHistory();
+      } else {
+        sessionChecks = [];
+        renderSessionHistory();
       }
     } catch (err) {
       console.warn("Could not load recent checks from backend:", err.message);
@@ -756,6 +837,33 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // On page load, fetch recent checks from Spring Boot database
-  loadRecentChecksFromBackend();
+  // On page load, verify active Supabase session before querying backend history
+  if (window.supabaseClient && window.supabaseClient.auth) {
+    window.supabaseClient.auth.getSession().then(({ data }) => {
+      if (data && data.session) {
+        loadRecentChecksFromBackend();
+      } else {
+        sessionChecks = [];
+        renderSessionHistory();
+      }
+    }).catch(() => {
+      sessionChecks = [];
+      renderSessionHistory();
+    });
+
+    // Listen for Supabase auth state changes (login / logout / token refreshed)
+    window.supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+        if (session) {
+          loadRecentChecksFromBackend();
+        }
+      } else if (event === "SIGNED_OUT") {
+        sessionChecks = [];
+        renderSessionHistory();
+      }
+    });
+  } else {
+    sessionChecks = [];
+    renderSessionHistory();
+  }
 });

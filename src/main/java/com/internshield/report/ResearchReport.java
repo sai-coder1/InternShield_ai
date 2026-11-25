@@ -36,6 +36,9 @@ public class ResearchReport {
     @Column(name = "internship_url", length = 1024)
     private String internshipUrl;
 
+    @Column(name = "user_id", length = 64)
+    private String userId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     private ResearchStatus status = ResearchStatus.PENDING;
@@ -120,6 +123,14 @@ public class ResearchReport {
 
     public void setInternshipUrl(String internshipUrl) {
         this.internshipUrl = internshipUrl;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public ResearchStatus getStatus() {

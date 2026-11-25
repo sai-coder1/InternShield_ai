@@ -117,6 +117,7 @@ class AnalysisWorkflowIntegrationTest {
 
         // 3. Execute request via REST API
         MvcResult mvcResult = mockMvc.perform(post("/api/analysis")
+                        .header("Authorization", "Bearer test-user-apex")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -149,6 +150,7 @@ class AnalysisWorkflowIntegrationTest {
         ResearchReport persistedReport = researchReportRepository.findById(response.id()).orElse(null);
         assertNotNull(persistedReport, "ResearchReport must be persisted in database");
         assertEquals(companyName, persistedReport.getCompanyName());
+        assertEquals("apex", persistedReport.getUserId(), "Report must be associated with the authenticated user ID");
         assertEquals(ResearchStatus.COMPLETED, persistedReport.getStatus());
         assertEquals(response.riskScore(), persistedReport.getRiskScore());
 

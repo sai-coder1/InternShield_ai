@@ -52,7 +52,8 @@ public class GeminiAnalysisService {
 
     public AIAnalysisResult parseGeminiResponse(String fallbackCompany, String rawResponse) {
         try {
-            JsonNode root = objectMapper.readTree(rawResponse);
+            String sanitizedJson = cleanMarkdownFences(rawResponse);
+            JsonNode root = objectMapper.readTree(sanitizedJson);
 
             String companyName = root.path("company_name").asText(fallbackCompany);
             String summary = root.path("summary").asText("");
@@ -105,5 +106,19 @@ public class GeminiAnalysisService {
             }
         }
         return result;
+    }
+
+    private String cleanMarkdownFences(String text) {
+        if (text == null) return "{}";
+        String trimmed = text.trim();
+        if (trimmed.startsWith("```json")) {
+            trimmed = trimmed.substring(7);
+        } else if (trimmed.startsWith("```")) {
+            trimmed = trimmed.substring(3);
+        }
+        if (trimmed.endsWith("```")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 3);
+        }
+        return trimmed.trim();
     }
 }

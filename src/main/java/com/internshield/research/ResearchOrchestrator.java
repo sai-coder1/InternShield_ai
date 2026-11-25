@@ -72,8 +72,7 @@ public class ResearchOrchestrator {
                 null,
                 new RiskAssessmentEngine(),
                 new InternshipListingExtractor(new SsrfProtectionValidator()),
-                null
-        );
+                null);
     }
 
     /**
@@ -103,12 +102,14 @@ public class ResearchOrchestrator {
         this.evidenceJsonExporter = (evidenceJsonExporter != null) ? evidenceJsonExporter : new EvidenceJsonExporter();
         this.geminiAnalysisService = geminiAnalysisService;
         this.riskAssessmentEngine = (riskAssessmentEngine != null) ? riskAssessmentEngine : new RiskAssessmentEngine();
-        this.listingExtractor = (listingExtractor != null) ? listingExtractor : new InternshipListingExtractor(new SsrfProtectionValidator());
+        this.listingExtractor = (listingExtractor != null) ? listingExtractor
+                : new InternshipListingExtractor(new SsrfProtectionValidator());
         this.researchReportRepository = researchReportRepository;
     }
 
     /**
-     * Existing conductResearch implementation preserved for Stage 5 backward compatibility.
+     * Existing conductResearch implementation preserved for Stage 5 backward
+     * compatibility.
      */
     public List<SearchResultItem> conductResearch(Long reportId) {
         ResearchResponse report = researchService.getResearchReportById(reportId);
@@ -156,8 +157,7 @@ public class ResearchOrchestrator {
                 "UNKNOWN",
                 findings.toString(),
                 "Perform manual review of extracted search sources before committing financial deposits or documents.",
-                ResearchStatus.COMPLETED
-        );
+                ResearchStatus.COMPLETED);
 
         researchService.updateResearchResults(reportId, updateRequest);
         return uniqueResults;
@@ -166,14 +166,26 @@ public class ResearchOrchestrator {
     /**
      * Complete end-to-end investigation pipeline:
      * User Input -> Listing Extraction -> Query Generation -> Octen Search ->
-     * Evidence Processing & Persistence -> Gemini AI Analysis -> Deterministic Risk Engine -> Final Report
+     * Evidence Processing & Persistence -> Gemini AI Analysis -> Deterministic Risk
+     * Engine -> Final Report
      */
     @Transactional
     public AnalysisReportResponse executeCompleteAnalysis(AnalysisRequest request) {
-        log.info("Starting complete internship analysis for company: {}", request.companyName());
+        return executeCompleteAnalysis(request, null);
+    }
+
+    /**
+     * Complete end-to-end investigation pipeline associated with an authenticated user:
+     * User Input -> Listing Extraction -> Query Generation -> Octen Search ->
+     * Evidence Processing & Persistence -> Gemini AI Analysis -> Deterministic Risk Engine -> Final Report
+     */
+    @Transactional
+    public AnalysisReportResponse executeCompleteAnalysis(AnalysisRequest request, String authenticatedUserId) {
+        log.info("Starting complete internship analysis for company: {}, user: {}", request.companyName(), authenticatedUserId);
 
         // 1. Initialize ResearchReport in database
         ResearchReport report = new ResearchReport(request.companyName(), request.internshipUrl());
+        report.setUserId(authenticatedUserId);
         report.setStatus(ResearchStatus.IN_PROGRESS);
         if (researchReportRepository != null) {
             report = researchReportRepository.save(report);
@@ -183,7 +195,8 @@ public class ResearchOrchestrator {
         ExtractedInternshipDetails listingDetails = listingExtractor.extract(
                 request.internshipUrl(), request.pastedDescription(), request.companyName());
 
-        // 3. Generate Targeted Search Queries (3-4 queries covering fees, scam allegations, reviews, official info)
+        // 3. Generate Targeted Search Queries (3-4 queries covering fees, scam
+        // allegations, reviews, official info)
         List<String> targetedQueries = searchQueryGenerator.generateTargetedQueries(
                 request.companyName(), request.internshipUrl());
 
@@ -213,7 +226,7 @@ public class ResearchOrchestrator {
 
         // 7. Evidence JSON Export for Gemini
         String evidenceJson = evidenceJsonExporter.exportToJson(
-                request.companyName(), report.getId(), persistedEvidence);
+                request.companyName(), report.getId(), persistedEvidence, listingDetails);
 
         // 8. Gemini AI Credibility Analysis
         AIAnalysisResult aiResult;
@@ -223,9 +236,10 @@ public class ResearchOrchestrator {
             aiResult = AIAnalysisResult.fallback(request.companyName(), "AI service not bound");
         }
 
-        // 9. Deterministic Rule-Based Risk Engine (Backend owns final score and verdict)
+        // 9. Deterministic Rule-Based Risk Engine (Backend owns final score and
+        // verdict)
         RiskAssessmentResult riskResult = riskAssessmentEngine.evaluateRisk(
-                request.companyName(), listingDetails, persistedEvidence);
+                request.companyName(), listingDetails, persistedEvidence, aiResult);
 
         // 10. Update & Finalize Report in Database
         report.setRiskScore(riskResult.riskScore());
@@ -235,7 +249,8 @@ public class ResearchOrchestrator {
         StringBuilder findingsBuilder = new StringBuilder();
         findingsBuilder.append("=== INTERNSHIELD AI VERIFICATION REPORT ===\n\n");
         findingsBuilder.append("RECOMMENDATION: ").append(riskResult.recommendation().name()).append("\n");
-        findingsBuilder.append("RISK SCORE: ").append(riskResult.riskScore()).append("/100 (").append(riskResult.riskLevel()).append(")\n\n");
+        findingsBuilder.append("RISK SCORE: ").append(riskResult.riskScore()).append("/100 (")
+                .append(riskResult.riskLevel()).append(")\n\n");
 
         findingsBuilder.append("--- AI CREDIBILITY SUMMARY ---\n");
         findingsBuilder.append(aiResult.summary()).append("\n\n");
@@ -297,7 +312,6 @@ public class ResearchOrchestrator {
                 listingDetails,
                 riskResult.scoringBreakdown(),
                 report.getCreatedAt(),
-                report.getUpdatedAt()
-        );
+                report.getUpdatedAt());
     }
 }
