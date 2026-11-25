@@ -1,40 +1,77 @@
 /**
  * InternShield AI - Supabase Client Configuration
  * Initializes the Supabase v2 JavaScript SDK using the public publishable anon key.
- * Provides resilient session retrieval with proactive token refresh.
+ * Provides resilient initialization with lazy fallback and safe session token retrieval.
  */
 
 const SUPABASE_URL = "https://voljvzvcoptqadeeymjj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_720rHpnaBsofC0xpDNdAxw_DzOG3qCz";
 
-let supabaseClient = null;
+let _supabaseClient = null;
 
-if (window.supabase && typeof window.supabase.createClient === "function") {
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
+/**
+ * Initializes and returns the Supabase client instance.
+ * Safe to call multiple times.
+ */
+function initSupabaseClient() {
+  if (_supabaseClient) {
+    return _supabaseClient;
+  }
+
+  const sdk = window.supabase;
+  if (sdk && typeof sdk.createClient === "function") {
+    try {
+      _supabaseClient = sdk.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+      return _supabaseClient;
+    } catch (err) {
+      console.error("Error creating Supabase client:", err);
     }
+  } else {
+    console.warn("Supabase SDK is not yet available on window.supabase.");
+  }
+  return null;
+}
+
+// Initial eager initialization attempt
+initSupabaseClient();
+
+// Define dynamic accessor so window.supabaseClient always resolves whenever accessed
+try {
+  Object.defineProperty(window, "supabaseClient", {
+    get: function() {
+      return _supabaseClient || initSupabaseClient();
+    },
+    set: function(val) {
+      _supabaseClient = val;
+    },
+    configurable: true,
+    enumerable: true
   });
-} else {
-  console.warn("Supabase library not loaded. Ensure the CDN script is included before supabaseClient.js.");
+} catch (_) {
+  window.supabaseClient = _supabaseClient;
 }
 
 /**
  * Retrieves a valid, non-expired Supabase access token.
- * Proactively refreshes the session if expired or close to expiry (within 60s).
+ * Only attempts refresh if an active session already exists and is close to expiring.
  * Returns null if no authenticated user session exists.
  *
  * @returns {Promise<string|null>} The valid JWT access token or null
  */
 async function getValidAccessToken() {
-  if (!supabaseClient || !supabaseClient.auth) {
+  const client = window.supabaseClient;
+  if (!client || !client.auth) {
     return null;
   }
 
   try {
-    const { data, error } = await supabaseClient.auth.getSession();
+    const { data, error } = await client.auth.getSession();
     if (error || !data || !data.session) {
       return null;
     }
@@ -42,14 +79,13 @@ async function getValidAccessToken() {
     let session = data.session;
     const nowSec = Math.floor(Date.now() / 1000);
 
-    // If access token is expired or within 60s of expiring, proactively refresh
+    // If an existing session token is expired or within 60s of expiring, proactively refresh
     if (session.expires_at && session.expires_at <= nowSec + 60) {
       console.log("Supabase session token expiring soon; refreshing...");
-      const { data: refreshData, error: refreshError } = await supabaseClient.auth.refreshSession();
+      const { data: refreshData, error: refreshError } = await client.auth.refreshSession();
       if (refreshError || !refreshData?.session) {
         console.warn("Failed to refresh Supabase session:", refreshError?.message);
-        // Clear stale session
-        try { await supabaseClient.auth.signOut(); } catch (_) {}
+        try { await client.auth.signOut(); } catch (_) {}
         return null;
       }
       session = refreshData.session;
@@ -63,28 +99,36 @@ async function getValidAccessToken() {
 }
 
 /**
- * Force refresh the Supabase session, returning the fresh access token.
+ * Proactively refresh the Supabase session, returning the fresh access token.
+ * Only attempts refresh if an active session exists.
  *
  * @returns {Promise<string|null>}
  */
 async function refreshAuthSession() {
-  if (!supabaseClient || !supabaseClient.auth) {
+  const client = window.supabaseClient;
+  if (!client || !client.auth) {
     return null;
   }
 
   try {
-    const { data, error } = await supabaseClient.auth.refreshSession();
+    const { data: sessionData } = await client.auth.getSession();
+    if (!sessionData?.session) {
+      // No active session exists, do not attempt refresh
+      return null;
+    }
+
+    const { data, error } = await client.auth.refreshSession();
     if (error || !data?.session) {
       return null;
     }
     return data.session.access_token || null;
   } catch (err) {
-    console.warn("Failed to force refresh session:", err);
+    console.warn("Failed to refresh session:", err);
     return null;
   }
 }
 
-// Expose globally
-window.supabaseClient = supabaseClient;
+// Expose helpers globally
+window.initSupabaseClient = initSupabaseClient;
 window.getValidAccessToken = getValidAccessToken;
 window.refreshAuthSession = refreshAuthSession;

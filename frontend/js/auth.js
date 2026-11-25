@@ -137,8 +137,19 @@ function initLoginForm() {
 
     if (!isValid) return;
 
-    // Check Supabase initialization
-    if (!window.supabaseClient) {
+    // Check Supabase initialization with fallback
+    let client = window.supabaseClient;
+    if (!client && typeof window.initSupabaseClient === "function") {
+      client = window.initSupabaseClient();
+    }
+    if (!client && window.supabase && typeof window.supabase.createClient === "function") {
+      try {
+        client = window.supabase.createClient("https://voljvzvcoptqadeeymjj.supabase.co", "sb_publishable_720rHpnaBsofC0xpDNdAxw_DzOG3qCz");
+        window.supabaseClient = client;
+      } catch (_) {}
+    }
+
+    if (!client) {
       showBanner(noticeBanner, "error", "Authentication service is temporarily unavailable. Please try again later.");
       return;
     }
@@ -150,7 +161,7 @@ function initLoginForm() {
     }
 
     try {
-      const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+      const { data, error } = await client.auth.signInWithPassword({
         email: emailVal,
         password: passwordVal
       });
@@ -266,7 +277,18 @@ function initRegisterForm() {
 
     if (!isValid) return;
 
-    if (!window.supabaseClient) {
+    let client = window.supabaseClient;
+    if (!client && typeof window.initSupabaseClient === "function") {
+      client = window.initSupabaseClient();
+    }
+    if (!client && window.supabase && typeof window.supabase.createClient === "function") {
+      try {
+        client = window.supabase.createClient("https://voljvzvcoptqadeeymjj.supabase.co", "sb_publishable_720rHpnaBsofC0xpDNdAxw_DzOG3qCz");
+        window.supabaseClient = client;
+      } catch (_) {}
+    }
+
+    if (!client) {
       showBanner(noticeBanner, "error", "Authentication service is temporarily unavailable. Please try again later.");
       return;
     }
@@ -278,7 +300,7 @@ function initRegisterForm() {
 
     try {
       // Connect to Supabase signUp with user's full name in options.data
-      const { data, error } = await window.supabaseClient.auth.signUp({
+      const { data, error } = await client.auth.signUp({
         email: emailVal,
         password: passwordVal,
         options: {
