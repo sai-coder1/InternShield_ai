@@ -102,7 +102,9 @@ Company Name + Internship URL
 
 | Home Page | Risk Assessment |
 |---|---|
-| ![Home Page](https://drive.google.com/file/d/1iKQOCJFVXT5IFXD4fXJzehVP4nN60Tyl/view?usp=sharing)| ![Risk Assessment](https://drive.google.com/file/d/1bpaEgcE8G7tQzDKvMifTCap1hxGDYMqD/view?usp=sharing) |
+| ![Home Page](<img width="1891" height="860" alt="home" src="https://github.com/user-attachments/assets/e12e1062-6c1c-43e0-853a-d9abbf9dbc1e" />
+)| ![Risk Assessment](<img width="1789" height="764" alt="Screenshot 2026-11-25 120043" src="https://github.com/user-attachments/assets/8f94b8f1-3547-4be4-98fd-785fca06fc57" />
+) |
 
 ## 🚀 Getting Started
 
